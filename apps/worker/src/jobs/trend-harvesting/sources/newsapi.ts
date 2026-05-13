@@ -9,7 +9,7 @@ export interface RawTrend {
 export class NewsApiClient {
   constructor(private readonly apiKey: string) {}
 
-  async fetchTrends(domain: string, region: string): Promise<RawTrend[]> {
+  async fetchTrends(domain: string, _region: string): Promise<RawTrend[]> {
     if (!this.apiKey) {
       return this.stubTrends(domain);
     }

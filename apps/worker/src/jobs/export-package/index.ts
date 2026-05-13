@@ -1,6 +1,4 @@
 import archiver from 'archiver';
-import fs from 'fs';
-import path from 'path';
 import { PassThrough } from 'stream';
 import type { Redis } from 'ioredis';
 import type { Logger } from 'pino';
@@ -30,7 +28,7 @@ export async function processExportPackage(
   payload: ExportPackageJobPayload,
   deps: Deps,
 ): Promise<void> {
-  const { db, redis, queues, logger, uploadZipToR2, getSignedUrl } = deps;
+  const { db, redis, queues, uploadZipToR2, getSignedUrl } = deps;
   const { user_id, content_package_id, approved_draft_ids, approved_visual_ids } = payload;
 
   const draftList = approved_draft_ids.length > 0
@@ -66,7 +64,7 @@ export async function processExportPackage(
   });
 
   const zipKey = `exports/${content_package_id}/package-${Date.now()}.zip`;
-  const cdnUrl = await uploadZipToR2(zipKey, zipBuffer);
+  await uploadZipToR2(zipKey, zipBuffer);
   const signedUrl = await getSignedUrl(zipKey);
   const expiresAt = new Date(Date.now() + 86400_000);
 

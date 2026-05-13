@@ -2,7 +2,7 @@ import type { Redis } from 'ioredis';
 import type { Logger } from 'pino';
 import type { AnthropicClient } from '@contentpulse/ai-client';
 import type { Db } from '@contentpulse/db';
-import { ideas, notifications, trendRuns, trends } from '@contentpulse/db';
+import { ideas, notifications, trends } from '@contentpulse/db';
 import type { IdeaGenerationJobPayload } from '@contentpulse/types';
 import { eq, desc } from 'drizzle-orm';
 import type { Queue } from 'bullmq';
@@ -54,7 +54,7 @@ export async function processIdeaGeneration(
   deps: Deps,
 ): Promise<void> {
   const { db, redis, aiClient, queues, logger } = deps;
-  const { user_id, trend_run_id, trend_ids } = payload;
+  const { user_id, trend_run_id } = payload;
 
   await publishToUser(redis, user_id, {
     event: 'pipeline_stage_started',

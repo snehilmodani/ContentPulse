@@ -40,7 +40,7 @@ export function createWorker<T extends JobPayload>(
 ): Worker<JobPayload> {
   return new Worker<JobPayload>(
     name,
-    async (job) => processor(job as { id?: string; data: T }),
+    async (job) => processor(job as unknown as { id?: string; data: T }),
     { connection: redis, concurrency },
   );
 }

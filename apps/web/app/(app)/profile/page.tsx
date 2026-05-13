@@ -32,9 +32,9 @@ export default function ProfilePage() {
   const onSubmit = async (data: UpsertDomainProfileBody & { tone_of_voice_raw: string; sub_domains_raw: string }) => {
     await upsert.mutateAsync({
       primary_domain: data.primary_domain,
-      target_audience: data.target_audience,
-      creator_persona: data.creator_persona,
-      region: data.region,
+      ...(data.target_audience !== undefined ? { target_audience: data.target_audience } : {}),
+      ...(data.creator_persona !== undefined ? { creator_persona: data.creator_persona } : {}),
+      ...(data.region !== undefined ? { region: data.region } : {}),
       tone_of_voice: data.tone_of_voice_raw.split(',').map((s) => s.trim()).filter(Boolean),
       sub_domains: data.sub_domains_raw.split(',').map((s) => s.trim()).filter(Boolean),
     });

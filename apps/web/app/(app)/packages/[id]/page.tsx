@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import Image from 'next/image';
 import { usePackage, usePackageDrafts, useApproveDraft, useRejectDraft, useRegenerateDraft, useExportPackage } from '@/lib/hooks/use-packages';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -98,8 +97,6 @@ export default function PackagePage() {
 
   const isLoading = pkgLoading || draftsLoading;
   const drafts = draftsData?.data ?? [];
-  const allApproved = drafts.length > 0 && drafts.every((d) => d.status === 'approved');
-
   const pipelineStatuses: Record<string, string> = {
     pending: 'Waiting to start',
     researching: 'Researching topic...',

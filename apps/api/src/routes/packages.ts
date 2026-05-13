@@ -5,7 +5,7 @@ import { contentPackages, drafts, topicBriefs, visuals } from '@contentpulse/db'
 import type { ExportPackageJobPayload } from '@contentpulse/types';
 import { notFound } from '../lib/errors';
 
-export async function packageRoutes(fastify: FastifyInstance & { db: Db; addJob: Function }) {
+export async function packageRoutes(fastify: FastifyInstance & { db: Db }) {
   fastify.get<{ Params: { packageId: string } }>(
     '/content-packages/:packageId',
     { preHandler: fastify.authenticate },
@@ -23,15 +23,11 @@ export async function packageRoutes(fastify: FastifyInstance & { db: Db; addJob:
 
       if (!pkg) throw notFound('ContentPackage', request.params.packageId);
 
-      const [{ draftCount }] = await fastify.db
-        .select({ draftCount: count() })
-        .from(drafts)
-        .where(eq(drafts.contentPackageId, pkg.id));
+      const draftCountRows = await fastify.db.select({ draftCount: count() }).from(drafts).where(eq(drafts.contentPackageId, pkg.id));
+      const draftCount = draftCountRows[0]?.draftCount ?? 0;
 
-      const [{ visualCount }] = await fastify.db
-        .select({ visualCount: count() })
-        .from(visuals)
-        .where(eq(visuals.contentPackageId, pkg.id));
+      const visualCountRows = await fastify.db.select({ visualCount: count() }).from(visuals).where(eq(visuals.contentPackageId, pkg.id));
+      const visualCount = visualCountRows[0]?.visualCount ?? 0;
 
       return reply.send({
         id: pkg.id,

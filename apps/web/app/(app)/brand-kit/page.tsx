@@ -18,7 +18,7 @@ export default function BrandKitPage() {
   const uploadLogo = useUploadLogo();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting, isSubmitSuccessful } } = useForm<UpsertBrandKitBody & { primary_colors_raw: string }>();
+  const { register, handleSubmit, reset, formState: { isSubmitting, isSubmitSuccessful } } = useForm<UpsertBrandKitBody & { primary_colors_raw: string }>();
 
   useEffect(() => {
     if (kit) {
@@ -32,7 +32,7 @@ export default function BrandKitPage() {
   const onSubmit = async (data: UpsertBrandKitBody & { primary_colors_raw: string }) => {
     await upsert.mutateAsync({
       primary_colors: data.primary_colors_raw.split(',').map((s) => s.trim()).filter(Boolean),
-      branding_mode: data.branding_mode,
+      ...(data.branding_mode !== undefined ? { branding_mode: data.branding_mode } : {}),
     });
   };
 

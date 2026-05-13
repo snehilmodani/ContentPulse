@@ -3,14 +3,13 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Inbox, Package, User, Palette, Settings, LogOut, Wifi, WifiOff } from 'lucide-react';
+import { LayoutDashboard, Inbox, User, Palette, Settings, LogOut, Wifi, WifiOff } from 'lucide-react';
 import { useAuthStore } from '@/lib/stores/auth';
 import { useWsStore } from '@/lib/stores/ws';
 import { useMe } from '@/lib/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { apiFetch } from '@/lib/api-client';
-import type { WSEnvelope } from '@contentpulse/types';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },

@@ -25,10 +25,11 @@ export async function notificationRoutes(fastify: FastifyInstance & { db: Db }) 
         .orderBy(notifications.createdAt)
         .limit(limit);
 
-      const [{ unreadCount }] = await fastify.db
+      const unreadCountRows = await fastify.db
         .select({ unreadCount: count() })
         .from(notifications)
         .where(and(eq(notifications.userId, request.user.id), isNull(notifications.readAt)));
+      const unreadCount = unreadCountRows[0]?.unreadCount ?? 0;
 
       return reply.send({
         data: notifList.map((n) => ({
@@ -44,7 +45,7 @@ export async function notificationRoutes(fastify: FastifyInstance & { db: Db }) 
           failed_at: n.failedAt?.toISOString() ?? null,
           created_at: n.createdAt.toISOString(),
         })),
-        unread_count: unreadCount ?? 0,
+        unread_count: unreadCount,
       });
     },
   );

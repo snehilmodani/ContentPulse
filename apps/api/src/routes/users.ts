@@ -69,31 +69,32 @@ export async function userRoutes(
       if (request.params.userId !== request.user.id) throw forbidden();
 
       const body = request.body;
+      const optionalDpFields = {
+        ...(body.target_audience !== undefined ? { targetAudience: body.target_audience } : {}),
+        ...(body.creator_persona !== undefined ? { creatorPersona: body.creator_persona } : {}),
+        ...(body.region !== undefined ? { region: body.region } : {}),
+      };
       const [dp] = await fastify.db
         .insert(domainProfiles)
         .values({
           userId: request.user.id,
           primaryDomain: body.primary_domain,
           subDomains: body.sub_domains ?? [],
-          targetAudience: body.target_audience,
-          creatorPersona: body.creator_persona,
           toneOfVoice: body.tone_of_voice ?? [],
           contentMixRatio: body.content_mix_ratio ?? {},
-          region: body.region ?? 'IN-MH',
           inspirationAccounts: body.inspiration_accounts ?? [],
+          ...optionalDpFields,
         })
         .onConflictDoUpdate({
           target: domainProfiles.userId,
           set: {
             primaryDomain: body.primary_domain,
             subDomains: body.sub_domains ?? [],
-            targetAudience: body.target_audience,
-            creatorPersona: body.creator_persona,
             toneOfVoice: body.tone_of_voice ?? [],
             contentMixRatio: body.content_mix_ratio ?? {},
-            region: body.region ?? 'IN-MH',
             inspirationAccounts: body.inspiration_accounts ?? [],
             updatedAt: new Date(),
+            ...optionalDpFields,
           },
         })
         .returning();

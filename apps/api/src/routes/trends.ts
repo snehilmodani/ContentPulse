@@ -25,40 +25,27 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
         .limit(limit)
         .offset(offset);
 
-      const [{ total }] = await fastify.db
-        .select({ total: count() })
-        .from(trendRuns)
-        .where(and(...conditions));
+      const totalRows = await fastify.db.select({ total: count() }).from(trendRuns).where(and(...conditions));
+      const total = totalRows[0]?.total ?? 0;
 
       const data = await Promise.all(
         runs.map(async (run) => {
-          const [trendCount] = await fastify.db
-            .select({ total: count() })
-            .from(trends)
-            .where(eq(trends.trendRunId, run.id));
-
-          const [ideaCount] = await fastify.db
-            .select({ total: count() })
-            .from(ideas)
-            .where(eq(ideas.trendRunId, run.id));
-
-          const [pendingCount] = await fastify.db
-            .select({ total: count() })
-            .from(ideas)
-            .where(and(eq(ideas.trendRunId, run.id), eq(ideas.status, 'pending')));
+          const trendCountRows = await fastify.db.select({ total: count() }).from(trends).where(eq(trends.trendRunId, run.id));
+          const ideaCountRows = await fastify.db.select({ total: count() }).from(ideas).where(eq(ideas.trendRunId, run.id));
+          const pendingCountRows = await fastify.db.select({ total: count() }).from(ideas).where(and(eq(ideas.trendRunId, run.id), eq(ideas.status, 'pending')));
 
           return {
             id: run.id,
             run_date: run.runDate,
             status: run.status,
-            trend_count: trendCount?.total ?? 0,
-            idea_count: ideaCount?.total ?? 0,
-            pending_idea_count: pendingCount?.total ?? 0,
+            trend_count: trendCountRows[0]?.total ?? 0,
+            idea_count: ideaCountRows[0]?.total ?? 0,
+            pending_idea_count: pendingCountRows[0]?.total ?? 0,
           };
         }),
       );
 
-      return reply.send({ data, meta: { page, limit, total: total ?? 0 } });
+      return reply.send({ data, meta: { page, limit, total } });
     },
   );
 
@@ -82,17 +69,14 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
 
       const trendSummaries = await Promise.all(
         trendList.map(async (t) => {
-          const [{ total }] = await fastify.db
-            .select({ total: count() })
-            .from(ideas)
-            .where(eq(ideas.trendId, t.id));
+          const ideaCountRows = await fastify.db.select({ total: count() }).from(ideas).where(eq(ideas.trendId, t.id));
 
           return {
             id: t.id,
             topic_name: t.topicName,
             category: t.category,
             composite_score: t.compositeScore ?? '0',
-            idea_count: total ?? 0,
+            idea_count: ideaCountRows[0]?.total ?? 0,
           };
         }),
       );
@@ -135,10 +119,8 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
         .limit(limit)
         .offset(offset);
 
-      const [{ total }] = await fastify.db
-        .select({ total: count() })
-        .from(ideas)
-        .where(and(...conditions));
+      const totalRows2 = await fastify.db.select({ total: count() }).from(ideas).where(and(...conditions));
+      const total = totalRows2[0]?.total ?? 0;
 
       const data = await Promise.all(
         ideaList.map(async (idea) => {
@@ -169,7 +151,7 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
         }),
       );
 
-      return reply.send({ data, meta: { page, limit, total: total ?? 0 } });
+      return reply.send({ data, meta: { page, limit, total } });
     },
   );
 }

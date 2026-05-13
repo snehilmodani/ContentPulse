@@ -78,7 +78,7 @@ export class AnthropicClient {
             if (err.status === 408 || err.status === 504) {
               throw new AiTimeoutError(err.message);
             }
-            if (err.status >= 500) {
+            if ((err.status ?? 0) >= 500) {
               throw err;
             }
             // 4xx errors other than 429 are not retryable
@@ -103,9 +103,9 @@ export class AnthropicClient {
     const inputTokens = response.usage.input_tokens;
     const outputTokens = response.usage.output_tokens;
     const cacheReadTokens =
-      (response.usage as Record<string, number>)['cache_read_input_tokens'] ?? 0;
+      (response.usage as unknown as Record<string, number>)['cache_read_input_tokens'] ?? 0;
     const cacheCreationTokens =
-      (response.usage as Record<string, number>)['cache_creation_input_tokens'] ?? 0;
+      (response.usage as unknown as Record<string, number>)['cache_creation_input_tokens'] ?? 0;
 
     const totalTokens = inputTokens + outputTokens;
     await this.redis

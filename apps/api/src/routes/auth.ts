@@ -41,7 +41,7 @@ export async function authRoutes(fastify: FastifyInstance & { db: Db }) {
     const passwordHash = await bcrypt.hash(password, 12);
     const [user] = await fastify.db
       .insert(users)
-      .values({ email: email.toLowerCase(), passwordHash, displayName: display_name })
+      .values({ email: email.toLowerCase(), passwordHash, ...(display_name !== undefined ? { displayName: display_name } : {}) })
       .returning();
 
     if (!user) throw new Error('User creation failed');

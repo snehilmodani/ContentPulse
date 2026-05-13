@@ -7,15 +7,12 @@ import type {
   ContentPackageResponse,
   DraftResponse,
   ExportResponse,
-  Paginated,
   RegenerateDraftBody,
   RegenerateDraftResponse,
   RegenerateVisualBody,
   RegenerateVisualResponse,
-  RejectDraftBody,
   RejectDraftResponse,
   TopicBriefResponse,
-  VisualResponse,
 } from '@contentpulse/types';
 
 export function usePackage(packageId: string) {
@@ -52,7 +49,7 @@ export function useApproveDraft() {
   return useMutation({
     mutationFn: (draftId: string) =>
       apiFetch<ApproveDraftResponse>(`/drafts/${draftId}/approve`, { method: 'POST' }),
-    onSuccess: (_data, draftId) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['packages'] });
     },
   });
@@ -64,7 +61,7 @@ export function useRejectDraft() {
     mutationFn: ({ draftId, reason }: { draftId: string; reason?: string }) =>
       apiFetch<typeof rejectDraftResponse>(`/drafts/${draftId}/reject`, {
         method: 'POST',
-        body: JSON.stringify({ reason } satisfies RejectDraftBody),
+        body: JSON.stringify(reason !== undefined ? { reason } : {}),
       }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['packages'] }),
   });

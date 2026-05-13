@@ -88,10 +88,25 @@ const workers = [
   createWorker<NotificationSendJobPayload>('notification-send', redis, 20, (job) =>
     processNotificationSend(job.data, { db, logger, resend }),
   ),
-];
 
-// ad-hoc handlers registered on the content-drafting and visual-generation queues
-workers[3]?.on('completed', () => {});
+  createWorker<DraftRegenerationJobPayload>('content-drafting', redis, 5, (job) =>
+    processDraftRegeneration(job.data, { db, redis, aiClient, logger }),
+  ),
+
+  createWorker<VisualRegenerationJobPayload>('visual-generation', redis, 5, (job) =>
+    processVisualRegeneration(job.data, {
+      db,
+      redis,
+      logger,
+      env: workerEnv,
+      uploadToR2: async (key, url) => {
+        const resp = await fetch(url);
+        const buf = Buffer.from(await resp.arrayBuffer());
+        return r2.upload(key, buf, 'image/jpeg');
+      },
+    }),
+  ),
+];
 
 const scheduler = startScheduler({ db, queues, logger });
 

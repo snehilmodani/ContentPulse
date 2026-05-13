@@ -21,7 +21,6 @@ interface Deps {
 }
 
 const AI_VISUAL_TYPES: VisualType[] = ['thumbnail'];
-const WEB_VISUAL_TYPES: VisualType[] = ['square_post', 'story_cover', 'carousel_slide', 'x_header'];
 
 async function fetchImageBuffer(url: string): Promise<Buffer> {
   const response = await fetch(url);

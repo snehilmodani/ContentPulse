@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Redis } from 'ioredis';
-import type { WebSocket } from 'ws';
+import type { WebSocket } from '@fastify/websocket';
 import { getChannelForUser } from './publisher';
 
 export async function registerWebSocket(fastify: FastifyInstance & { redis: Redis }) {

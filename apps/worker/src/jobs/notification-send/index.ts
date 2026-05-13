@@ -3,7 +3,7 @@ import type { Db } from '@contentpulse/db';
 import { notifications, users } from '@contentpulse/db';
 import type { NotificationSendJobPayload } from '@contentpulse/types';
 import { eq } from 'drizzle-orm';
-import { ResendClient } from '../../adapters/resend';
+import type { ResendClient } from '../../adapters/resend';
 
 interface Deps {
   db: Db;

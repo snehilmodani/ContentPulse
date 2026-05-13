@@ -5,9 +5,7 @@ import { visuals } from '@contentpulse/db';
 import type { RegenerateVisualBody, VisualRegenerationJobPayload } from '@contentpulse/types';
 import { badRequest, notFound } from '../lib/errors';
 
-export async function visualRoutes(
-  fastify: FastifyInstance & { db: Db; queues: Record<string, { add: Function }> },
-) {
+export async function visualRoutes(fastify: FastifyInstance & { db: Db }) {
   fastify.get<{ Params: { visualId: string } }>(
     '/visuals/:visualId',
     { preHandler: fastify.authenticate },
@@ -62,8 +60,8 @@ export async function visualRoutes(
         user_id: request.user.id,
         visual_id: visual.id,
         content_package_id: visual.contentPackageId,
-        instruction: request.body?.instruction,
-        override_method: request.body?.generation_method,
+        ...(request.body?.instruction !== undefined ? { instruction: request.body.instruction } : {}),
+        ...(request.body?.generation_method !== undefined ? { override_method: request.body.generation_method } : {}),
       };
 
       const job = await fastify.queues['visual-generation'].add('visual_regeneration', jobPayload);

@@ -21,7 +21,11 @@ export default function RegisterPage() {
       return;
     }
     try {
-      await register_.mutateAsync({ email: data.email, password: data.password, display_name: data.display_name });
+      await register_.mutateAsync({
+        email: data.email,
+        password: data.password,
+        ...(data.display_name !== undefined ? { display_name: data.display_name } : {}),
+      });
       router.push('/profile');
     } catch (err) {
       setError('root', { message: err instanceof Error ? err.message : 'Registration failed' });

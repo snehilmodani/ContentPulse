@@ -5,7 +5,7 @@ import { drafts, topicBriefs } from '@contentpulse/db';
 import type { DraftRegenerationJobPayload, RejectDraftBody } from '@contentpulse/types';
 import { badRequest, notFound } from '../lib/errors';
 
-export async function draftRoutes(fastify: FastifyInstance & { db: Db; addJob: Function; queues: Record<string, { add: Function }> }) {
+export async function draftRoutes(fastify: FastifyInstance & { db: Db }) {
   fastify.get<{ Params: { draftId: string } }>(
     '/drafts/:draftId',
     { preHandler: fastify.authenticate },
@@ -116,7 +116,7 @@ export async function draftRoutes(fastify: FastifyInstance & { db: Db; addJob: F
       const now = new Date();
       await fastify.db
         .update(drafts)
-        .set({ status: 'rejected', rejectedAt: now, rejectionReason: request.body?.reason, updatedAt: now })
+        .set({ status: 'rejected', rejectedAt: now, updatedAt: now, ...(request.body?.reason !== undefined ? { rejectionReason: request.body.reason } : {}) })
         .where(eq(drafts.id, draft.id));
 
       return reply.send({ draft_id: draft.id, status: 'rejected' });

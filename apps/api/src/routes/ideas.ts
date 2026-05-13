@@ -7,7 +7,7 @@ import { badRequest, notFound } from '../lib/errors';
 import type { Redis } from 'ioredis';
 
 export async function ideaRoutes(
-  fastify: FastifyInstance & { db: Db; redis: Redis; addJob: Function },
+  fastify: FastifyInstance & { db: Db; redis: Redis },
 ) {
   fastify.get<{ Params: { ideaId: string } }>(
     '/ideas/:ideaId',
@@ -126,7 +126,7 @@ export async function ideaRoutes(
 
       await fastify.db
         .update(ideas)
-        .set({ status: 'rejected', rejectionReason: request.body?.reason, updatedAt: new Date() })
+        .set({ status: 'rejected', updatedAt: new Date(), ...(request.body?.reason !== undefined ? { rejectionReason: request.body.reason } : {}) })
         .where(eq(ideas.id, idea.id));
 
       return reply.send({ idea_id: idea.id, status: 'rejected' });

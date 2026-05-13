@@ -4,7 +4,7 @@ import type { RawTrend } from './newsapi';
 export class XTrendsClient {
   constructor(private readonly bearerToken: string) {}
 
-  async fetchTrends(domain: string, region: string): Promise<RawTrend[]> {
+  async fetchTrends(domain: string, _region: string): Promise<RawTrend[]> {
     if (!this.bearerToken) {
       return this.stubTrends(domain);
     }

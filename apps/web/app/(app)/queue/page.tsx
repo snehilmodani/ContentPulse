@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle, XCircle, Clock, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle, Clock } from 'lucide-react';
 import type { IdeaListItem } from '@contentpulse/types';
 
 const ANGLE_COLORS: Record<string, string> = {

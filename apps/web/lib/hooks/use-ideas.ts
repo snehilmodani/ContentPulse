@@ -5,9 +5,7 @@ import { apiFetch } from '../api-client';
 import type {
   ApproveIdeaResponse,
   DeferIdeaResponse,
-  IdeaResponse,
   Paginated,
-  RejectIdeaBody,
   RejectIdeaResponse,
   TrendRunListItem,
 } from '@contentpulse/types';
@@ -46,7 +44,7 @@ export function useRejectIdea() {
     mutationFn: ({ ideaId, reason }: { ideaId: string; reason?: string }) =>
       apiFetch<RejectIdeaResponse>(`/ideas/${ideaId}/reject`, {
         method: 'POST',
-        body: JSON.stringify({ reason } satisfies RejectIdeaBody),
+        body: JSON.stringify(reason !== undefined ? { reason } : {}),
       }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['trend-run-ideas'] }),
   });

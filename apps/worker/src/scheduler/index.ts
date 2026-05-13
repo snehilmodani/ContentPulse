@@ -5,7 +5,7 @@ import type { Db } from '@contentpulse/db';
 import { domainProfiles, trendRuns, users } from '@contentpulse/db';
 import type { Queue } from 'bullmq';
 import type { JobPayload, TrendHarvestingJobPayload } from '@contentpulse/types';
-import { and, eq, isNull, not, exists } from 'drizzle-orm';
+import { and, eq, not, exists } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 
 interface Deps {
