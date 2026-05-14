@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import type { Db } from '@contentpulse/db';
 import { drafts, topicBriefs } from '@contentpulse/db';
 import type { DraftRegenerationJobPayload, RejectDraftBody } from '@contentpulse/types';
-import { badRequest, notFound } from '../lib/errors';
+import { notFound } from '../lib/errors';
 
 export async function draftRoutes(fastify: FastifyInstance & { db: Db }) {
   fastify.get<{ Params: { draftId: string } }>(
@@ -46,7 +46,6 @@ export async function draftRoutes(fastify: FastifyInstance & { db: Db }) {
         .limit(1);
 
       if (!draft) throw notFound('Draft', request.params.draftId);
-      if (draft.status === 'regenerating') throw badRequest('Draft is already regenerating');
 
       const [brief] = await fastify.db
         .select({ id: topicBriefs.id })
@@ -69,7 +68,7 @@ export async function draftRoutes(fastify: FastifyInstance & { db: Db }) {
         topic_brief_id: brief?.id ?? '',
       };
 
-      const job = await fastify.queues['content-drafting'].add('draft_regeneration', jobPayload);
+      const job = await fastify.queues['draft-regeneration'].add('draft_regeneration', jobPayload);
 
       return reply.status(202).send({
         draft_id: draft.id,

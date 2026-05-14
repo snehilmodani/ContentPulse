@@ -15,6 +15,13 @@ import type {
   TopicBriefResponse,
 } from '@contentpulse/types';
 
+export function usePackagesList() {
+  return useQuery<{ data: Array<{ id: string; status: string; hook_line: string | null; created_at: string; updated_at: string }> }>({
+    queryKey: ['packages'],
+    queryFn: () => apiFetch('/content-packages'),
+  });
+}
+
 export function usePackage(packageId: string) {
   return useQuery<ContentPackageResponse>({
     queryKey: ['packages', packageId],
@@ -36,11 +43,12 @@ export function usePackageBrief(packageId: string) {
   });
 }
 
-export function usePackageDrafts(packageId: string) {
+export function usePackageDrafts(packageId: string, pollWhileDrafting = false) {
   return useQuery<{ data: DraftResponse[] }>({
     queryKey: ['packages', packageId, 'drafts'],
     queryFn: () => apiFetch<{ data: DraftResponse[] }>(`/content-packages/${packageId}/drafts`),
     enabled: !!packageId,
+    refetchInterval: pollWhileDrafting ? 3000 : false,
   });
 }
 

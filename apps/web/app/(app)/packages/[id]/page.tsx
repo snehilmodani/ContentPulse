@@ -19,6 +19,81 @@ const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'ou
   regenerating: 'outline',
 };
 
+// ─── Pipeline progress ──────────────────────────────────────────────────────
+
+type StepStatus = 'pending' | 'active' | 'done' | 'failed';
+
+function deriveStepStatuses(pkgStatus: string): Record<'research' | 'drafts' | 'visuals', StepStatus> {
+  switch (pkgStatus) {
+    case 'researching': return { research: 'active',  drafts: 'pending', visuals: 'pending' };
+    case 'drafting':    return { research: 'done',    drafts: 'active',  visuals: 'active'  };
+    case 'ready':
+    case 'approved':
+    case 'exported':    return { research: 'done',    drafts: 'done',    visuals: 'done'    };
+    case 'rejected':    return { research: 'failed',  drafts: 'pending', visuals: 'pending' };
+    default:            return { research: 'pending', drafts: 'pending', visuals: 'pending' };
+  }
+}
+
+function StepIcon({ status }: { status: StepStatus }) {
+  if (status === 'done')   return <CheckCircle className="h-5 w-5 shrink-0 text-green-500" />;
+  if (status === 'active') return <Loader2 className="h-5 w-5 shrink-0 animate-spin text-blue-500" />;
+  if (status === 'failed') return <XCircle className="h-5 w-5 shrink-0 text-destructive" />;
+  return <div className="h-5 w-5 shrink-0 rounded-full border-2 border-muted-foreground/30" />;
+}
+
+function stepLabel(status: StepStatus, activeMsg: string, doneMsg: string, pendingMsg: string) {
+  if (status === 'active') return { text: activeMsg, className: 'text-blue-600' };
+  if (status === 'done')   return { text: doneMsg,   className: 'text-green-600' };
+  if (status === 'failed') return { text: 'Failed',  className: 'text-destructive' };
+  return { text: pendingMsg, className: 'text-muted-foreground' };
+}
+
+function PipelineProgress({ pkgStatus, draftsCount }: { pkgStatus: string; draftsCount: number }) {
+  const s = deriveStepStatuses(pkgStatus);
+
+  const steps = [
+    {
+      key: 'research' as const,
+      name: 'Research',
+      ...stepLabel(s.research, 'Researching topic…', 'Topic researched', 'Not started'),
+    },
+    {
+      key: 'drafts' as const,
+      name: 'Drafts',
+      ...stepLabel(
+        s.drafts,
+        draftsCount > 0 ? `Generating — ${draftsCount} / 5 ready` : 'Generating drafts…',
+        `${draftsCount} drafts ready`,
+        'Waiting for research',
+      ),
+    },
+    {
+      key: 'visuals' as const,
+      name: 'Visuals',
+      ...stepLabel(s.visuals, 'Generating visuals…', 'Visuals ready', 'Waiting for research'),
+    },
+  ];
+
+  return (
+    <Card>
+      <CardContent className="py-4 divide-y divide-border">
+        {steps.map((step) => (
+          <div key={step.key} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+            <StepIcon status={s[step.key]} />
+            <span className={`text-sm font-medium w-20 shrink-0 ${s[step.key] === 'pending' ? 'text-muted-foreground' : ''}`}>
+              {step.name}
+            </span>
+            <span className={`text-sm ${step.className}`}>{step.text}</span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Draft card ─────────────────────────────────────────────────────────────
+
 function DraftCard({ draft }: { draft: DraftResponse }) {
   const [regenInstruction, setRegenInstruction] = useState('');
   const [showRegen, setShowRegen] = useState(false);
@@ -88,23 +163,30 @@ function DraftCard({ draft }: { draft: DraftResponse }) {
   );
 }
 
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+const IN_FLIGHT = new Set(['pending', 'researching', 'drafting', 'rejected']);
+
 export default function PackagePage() {
   const params = useParams();
   const packageId = params['id'] as string;
   const { data: pkg, isLoading: pkgLoading } = usePackage(packageId);
-  const { data: draftsData, isLoading: draftsLoading } = usePackageDrafts(packageId);
+  const isDrafting = pkg?.status === 'drafting';
+  const { data: draftsData, isLoading: draftsLoading } = usePackageDrafts(packageId, isDrafting);
   const exportPackage = useExportPackage();
 
-  const isLoading = pkgLoading || draftsLoading;
+  const pkgStatus = pkg?.status ?? 'pending';
   const drafts = draftsData?.data ?? [];
-  const pipelineStatuses: Record<string, string> = {
+  const showPipeline = IN_FLIGHT.has(pkgStatus);
+
+  const pageSubtitle: Record<string, string> = {
     pending: 'Waiting to start',
-    researching: 'Researching topic...',
-    drafting: 'Generating drafts...',
+    researching: 'Pipeline running',
+    drafting: 'Pipeline running',
     ready: 'Ready for review',
     approved: 'Approved',
     exported: 'Exported',
-    rejected: 'Rejected',
+    rejected: 'Generation failed',
   };
 
   return (
@@ -112,22 +194,18 @@ export default function PackagePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Content Package</h1>
-          {isLoading ? (
+          {pkgLoading ? (
             <Skeleton className="h-5 w-40 mt-1" />
           ) : (
-            <p className="text-muted-foreground">{pipelineStatuses[pkg?.status ?? 'pending']}</p>
+            <p className="text-muted-foreground">{pageSubtitle[pkgStatus]}</p>
           )}
         </div>
-        {pkg?.status === 'ready' || pkg?.status === 'approved' ? (
-          <Button
-            onClick={() => exportPackage.mutate(packageId)}
-            disabled={exportPackage.isPending}
-            className="gap-2"
-          >
+        {(pkgStatus === 'ready' || pkgStatus === 'approved') && (
+          <Button onClick={() => exportPackage.mutate(packageId)} disabled={exportPackage.isPending} className="gap-2">
             {exportPackage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Export Package
           </Button>
-        ) : null}
+        )}
         {pkg?.export_url && (
           <Button asChild variant="outline" className="gap-2">
             <a href={pkg.export_url} download>
@@ -137,18 +215,15 @@ export default function PackagePage() {
         )}
       </div>
 
-      {(pkg?.status === 'researching' || pkg?.status === 'drafting') && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="py-4 flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-            <p className="text-sm text-blue-800">{pipelineStatuses[pkg.status]}</p>
-          </CardContent>
-        </Card>
-      )}
+      {pkgLoading ? (
+        <Skeleton className="h-32 w-full" />
+      ) : showPipeline ? (
+        <PipelineProgress pkgStatus={pkgStatus} draftsCount={drafts.length} />
+      ) : null}
 
       <div className="space-y-3">
         <h2 className="text-xl font-semibold">Drafts ({drafts.length})</h2>
-        {isLoading ? (
+        {pkgLoading || draftsLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-64 w-full" />)}
           </div>

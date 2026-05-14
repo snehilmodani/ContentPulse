@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Inbox, User, Palette, Settings, LogOut, Wifi, WifiOff } from 'lucide-react';
+import { LayoutDashboard, Inbox, Package, User, Palette, Settings, LogOut, Wifi, WifiOff } from 'lucide-react';
 import { useAuthStore } from '@/lib/stores/auth';
 import { useWsStore } from '@/lib/stores/ws';
 import { useMe } from '@/lib/hooks/use-auth';
@@ -14,6 +14,7 @@ import { apiFetch } from '@/lib/api-client';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/queue', label: 'Review Queue', icon: Inbox },
+  { href: '/packages', label: 'Packages', icon: Package },
   { href: '/profile', label: 'Domain Profile', icon: User },
   { href: '/brand-kit', label: 'Brand Kit', icon: Palette },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -21,7 +22,7 @@ const navItems = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { accessToken, user, setAuth, clearAuth } = useAuthStore();
+  const { accessToken, user, hydrated, setAuth, clearAuth } = useAuthStore();
   const { connect, connected, on } = useWsStore();
   const queryClient = useQueryClient();
   const { data: me, isLoading, error } = useMe();
@@ -31,13 +32,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!isLoading && !me && error) {
+    if (!hydrated) return;
+    if (isLoading) return;
+    if (!me) {
       router.push('/login');
+      return;
     }
-    if (me && !user) {
+    if (!user) {
       setAuth(me, accessToken ?? '', localStorage.getItem('refresh_token') ?? '');
     }
-  }, [me, isLoading, error, router, user, setAuth, accessToken]);
+  }, [me, isLoading, hydrated, error, router, user, setAuth, accessToken]);
 
   useEffect(() => {
     if (accessToken) {
@@ -63,7 +67,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  if (isLoading) {
+  if (!hydrated || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

@@ -89,7 +89,7 @@ const workers = [
     processNotificationSend(job.data, { db, logger, resend }),
   ),
 
-  createWorker<DraftRegenerationJobPayload>('content-drafting', redis, 5, (job) =>
+  createWorker<DraftRegenerationJobPayload>('draft-regeneration', redis, 5, (job) =>
     processDraftRegeneration(job.data, { db, redis, aiClient, logger }),
   ),
 

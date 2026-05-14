@@ -9,6 +9,7 @@ const QUEUE_NAMES = [
   'idea-generation',
   'research-brief',
   'content-drafting',
+  'draft-regeneration',
   'visual-generation',
   'export-package',
   'notification-send',

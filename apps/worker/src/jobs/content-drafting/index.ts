@@ -39,6 +39,7 @@ export async function processContentDrafting(
   payload: ContentDraftingJobPayload,
   deps: Deps,
 ): Promise<void> {
+  if (payload.job_type !== 'content_drafting') return;
   const { db, redis, aiClient, queues, logger } = deps;
   const { user_id, content_package_id, topic_brief_id, idea_id, selected_formats, domain_profile } = payload;
 
@@ -67,7 +68,10 @@ Always return valid JSON matching the requested format exactly.`,
     cacheable: true,
   };
 
-  for (const format of selected_formats) {
+  for (let fi = 0; fi < selected_formats.length; fi++) {
+    const format = selected_formats[fi]!;
+    // Space out calls to avoid hitting free-tier rate limits
+    if (fi > 0) await new Promise((r) => setTimeout(r, 4_000));
     const formatInstruction = FORMAT_INSTRUCTIONS[format];
 
     let contentBody: Record<string, unknown>;

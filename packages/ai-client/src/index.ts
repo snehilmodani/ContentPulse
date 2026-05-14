@@ -79,7 +79,12 @@ export class AnthropicClient {
           });
         } catch (err) {
           if (err instanceof OpenAI.APIError) {
-            if (err.status === 429) throw new AiRateLimitError(err.message);
+            if (err.status === 429) {
+              // Honour Retry-After if present, otherwise wait 15 s before letting pRetry retry
+              const retryAfter = Number(err.headers?.['retry-after'] ?? 15);
+              await new Promise((r) => setTimeout(r, retryAfter * 1000));
+              throw new AiRateLimitError(err.message);
+            }
             if (err.status === 408 || err.status === 504) throw new AiTimeoutError(err.message);
             if (err.status >= 500) throw err;
             throw new AbortError(err.message);
@@ -88,12 +93,9 @@ export class AnthropicClient {
         }
       },
       {
-        retries: 2,
+        retries: 3,
         factor: 2,
         minTimeout: 1000,
-        onFailedAttempt: (error) => {
-          if (error.retriesLeft === 0) return;
-        },
       },
     );
 

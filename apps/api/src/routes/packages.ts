@@ -1,11 +1,40 @@
 import type { FastifyInstance } from 'fastify';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import type { Db } from '@contentpulse/db';
-import { contentPackages, drafts, topicBriefs, visuals } from '@contentpulse/db';
+import { contentPackages, drafts, ideas, topicBriefs, visuals } from '@contentpulse/db';
 import type { ExportPackageJobPayload } from '@contentpulse/types';
 import { notFound } from '../lib/errors';
 
 export async function packageRoutes(fastify: FastifyInstance & { db: Db }) {
+  fastify.get(
+    '/content-packages',
+    { preHandler: fastify.authenticate },
+    async (request, reply) => {
+      const rows = await fastify.db
+        .select({
+          id: contentPackages.id,
+          status: contentPackages.status,
+          createdAt: contentPackages.createdAt,
+          updatedAt: contentPackages.updatedAt,
+          hookLine: ideas.hookLine,
+        })
+        .from(contentPackages)
+        .leftJoin(ideas, eq(contentPackages.ideaId, ideas.id))
+        .where(eq(contentPackages.userId, request.user.id))
+        .orderBy(desc(contentPackages.createdAt));
+
+      return reply.send({
+        data: rows.map((r) => ({
+          id: r.id,
+          status: r.status,
+          hook_line: r.hookLine ?? null,
+          created_at: r.createdAt.toISOString(),
+          updated_at: r.updatedAt.toISOString(),
+        })),
+      });
+    },
+  );
+
   fastify.get<{ Params: { packageId: string } }>(
     '/content-packages/:packageId',
     { preHandler: fastify.authenticate },
