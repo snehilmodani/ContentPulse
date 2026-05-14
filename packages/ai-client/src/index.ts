@@ -1,11 +1,12 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import type { Redis } from 'ioredis';
 import pRetry, { AbortError } from 'p-retry';
 import { AiRateLimitError, AiTimeoutError, TokenBudgetExceededError } from './errors';
 
 export { AiRateLimitError, AiTimeoutError, TokenBudgetExceededError };
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+const FALLBACK_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 const DEFAULT_TOKEN_CAP = 1_000_000;
 
 export interface SystemBlock {
@@ -30,14 +31,25 @@ export interface CompleteResult {
 }
 
 export class AnthropicClient {
-  private readonly client: Anthropic | null;
+  private readonly client: OpenAI | null;
   private readonly redis: Redis;
   private readonly tokenCap: number;
+  readonly defaultModel: string;
 
-  constructor(apiKey: string, redis: Redis, tokenCap = DEFAULT_TOKEN_CAP) {
+  constructor(apiKey: string, redis: Redis, defaultModel = FALLBACK_MODEL, tokenCap = DEFAULT_TOKEN_CAP) {
     this.redis = redis;
     this.tokenCap = tokenCap;
-    this.client = apiKey ? new Anthropic({ apiKey }) : null;
+    this.defaultModel = defaultModel;
+    this.client = apiKey
+      ? new OpenAI({
+          apiKey,
+          baseURL: OPENROUTER_BASE_URL,
+          defaultHeaders: {
+            'HTTP-Referer': 'https://contentpulse.app',
+            'X-Title': 'ContentPulse',
+          },
+        })
+      : null;
   }
 
   async complete(opts: CompleteOptions): Promise<CompleteResult> {
@@ -51,37 +63,25 @@ export class AnthropicClient {
       throw new TokenBudgetExceededError(opts.userId, used, this.tokenCap);
     }
 
-    const system: Anthropic.Messages.TextBlockParam[] = opts.systemBlocks.map((b) => {
-      const block: Anthropic.Messages.TextBlockParam = { type: 'text', text: b.text };
-      if (b.cacheable) {
-        (block as Anthropic.Messages.TextBlockParam & {
-          cache_control?: { type: 'ephemeral' };
-        }).cache_control = { type: 'ephemeral' };
-      }
-      return block;
-    });
+    const systemText = opts.systemBlocks.map((b) => b.text).join('\n\n');
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemText },
+      ...opts.messages,
+    ];
 
     const response = await pRetry(
       async () => {
         try {
-          return await this.client!.messages.create({
-            model: opts.model ?? DEFAULT_MODEL,
+          return await this.client!.chat.completions.create({
+            model: opts.model ?? this.defaultModel,
             max_tokens: opts.maxTokens ?? 4096,
-            system,
-            messages: opts.messages,
+            messages,
           });
         } catch (err) {
-          if (err instanceof Anthropic.APIError) {
-            if (err.status === 429) {
-              throw new AiRateLimitError(err.message);
-            }
-            if (err.status === 408 || err.status === 504) {
-              throw new AiTimeoutError(err.message);
-            }
-            if ((err.status ?? 0) >= 500) {
-              throw err;
-            }
-            // 4xx errors other than 429 are not retryable
+          if (err instanceof OpenAI.APIError) {
+            if (err.status === 429) throw new AiRateLimitError(err.message);
+            if (err.status === 408 || err.status === 504) throw new AiTimeoutError(err.message);
+            if (err.status >= 500) throw err;
             throw new AbortError(err.message);
           }
           throw err;
@@ -97,15 +97,13 @@ export class AnthropicClient {
       },
     );
 
-    const text =
-      response.content[0]?.type === 'text' ? response.content[0].text : '';
-
-    const inputTokens = response.usage.input_tokens;
-    const outputTokens = response.usage.output_tokens;
-    const cacheReadTokens =
-      (response.usage as unknown as Record<string, number>)['cache_read_input_tokens'] ?? 0;
-    const cacheCreationTokens =
-      (response.usage as unknown as Record<string, number>)['cache_creation_input_tokens'] ?? 0;
+    const text = response.choices[0]?.message.content ?? '';
+    const inputTokens = response.usage?.prompt_tokens ?? 0;
+    const outputTokens = response.usage?.completion_tokens ?? 0;
+    // OpenRouter passes through Anthropic's cache token fields when using Anthropic models
+    const usageExtra = (response.usage ?? {}) as unknown as Record<string, number>;
+    const cacheReadTokens = usageExtra['cache_read_input_tokens'] ?? 0;
+    const cacheCreationTokens = usageExtra['cache_creation_input_tokens'] ?? 0;
 
     const totalTokens = inputTokens + outputTokens;
     await this.redis
@@ -120,7 +118,7 @@ export class AnthropicClient {
   private stubComplete(opts: CompleteOptions): CompleteResult {
     const lastUserMsg = [...opts.messages].reverse().find((m) => m.role === 'user');
     const preview = lastUserMsg?.content.slice(0, 80) ?? 'content';
-    const text = `[STUB] Generated content for: ${preview}\n\nThis is placeholder content returned by the stub adapter. Set ANTHROPIC_API_KEY to enable real generation.`;
+    const text = `[STUB] Generated content for: ${preview}\n\nThis is placeholder content returned by the stub adapter. Set OPENROUTER_API_KEY to enable real generation.`;
     return { text, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 };
   }
 

@@ -15,9 +15,11 @@ export function getDimensions(visualType: VisualType) {
 
 export class DalleClient {
   private readonly apiKey: string;
+  private readonly model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model = 'dall-e-3') {
     this.apiKey = apiKey;
+    this.model = model;
   }
 
   async generate(prompt: string, _visualType: VisualType): Promise<{ url: string; revisedPrompt: string }> {
@@ -37,7 +39,7 @@ export class DalleClient {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'dall-e-3',
+            model: this.model,
             prompt,
             n: 1,
             size: '1024x1024',

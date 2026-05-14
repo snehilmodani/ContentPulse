@@ -14,9 +14,11 @@ interface PerplexityResearchResult {
 
 export class PerplexityClient {
   private readonly apiKey: string;
+  private readonly model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model = 'llama-3.1-sonar-small-128k-online') {
     this.apiKey = apiKey;
+    this.model = model;
   }
 
   async research(topic: string, region: string): Promise<PerplexityResearchResult> {
@@ -26,14 +28,16 @@ export class PerplexityClient {
 
     return pRetry(
       async () => {
-        const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://contentpulse.app',
+            'X-Title': 'ContentPulse',
           },
           body: JSON.stringify({
-            model: 'llama-3.1-sonar-large-128k-online',
+            model: this.model,
             messages: [
               {
                 role: 'user',

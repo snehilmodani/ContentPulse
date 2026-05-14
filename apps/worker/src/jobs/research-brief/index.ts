@@ -14,7 +14,7 @@ interface Deps {
   redis: Redis;
   queues: Record<string, Queue<JobPayload>>;
   logger: Logger;
-  env: { PERPLEXITY_API_KEY: string };
+  env: { OPENROUTER_API_KEY: string; AI_MODEL_RESEARCH: string };
 }
 
 export async function processResearchBrief(
@@ -35,7 +35,7 @@ export async function processResearchBrief(
     timestamp: new Date().toISOString(),
   });
 
-  const perplexity = new PerplexityClient(env.PERPLEXITY_API_KEY);
+  const perplexity = new PerplexityClient(env.OPENROUTER_API_KEY, env.AI_MODEL_RESEARCH);
 
   let researchResult;
   try {
@@ -63,7 +63,7 @@ export async function processResearchBrief(
       relatedTopics: researchResult.related_topics,
       sources: researchResult.sources,
       factCheckFlags: researchResult.fact_check_flags,
-      researchMeta: { perplexity_model: 'llama-3.1-sonar-large-128k-online' },
+      researchMeta: { perplexity_model: env.AI_MODEL_RESEARCH },
     })
     .returning();
 

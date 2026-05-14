@@ -1,14 +1,26 @@
 import { z } from 'zod';
 
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const dotenv = require('dotenv') as typeof import('dotenv');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require('path') as typeof import('path');
+  // __dirname is packages/config/src (source) or packages/config/dist (compiled); ../../.. = repo root
+  dotenv.config({ path: path.resolve(__dirname, '../../..', '.env') });
+} catch { /* dotenv not available in production */ }
+
 const schema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
-  ANTHROPIC_API_KEY: z.string().default(''),
+  OPENROUTER_API_KEY: z.string().default(''),
   OPENAI_API_KEY: z.string().default(''),
-  PERPLEXITY_API_KEY: z.string().default(''),
+
+  AI_MODEL_GENERATION: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
+  AI_MODEL_RESEARCH: z.string().default('perplexity/llama-3.1-sonar-small-128k-online'),
+  AI_MODEL_VISUAL: z.string().default('dall-e-3'),
 
   X_API_BEARER_TOKEN: z.string().default(''),
   NEWSAPI_KEY: z.string().default(''),

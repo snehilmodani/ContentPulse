@@ -17,7 +17,7 @@ interface Deps {
   queues: Record<string, Queue<JobPayload>>;
   logger: Logger;
   uploadToR2: (key: string, url: string, userId: string) => Promise<string>;
-  env: { OPENAI_API_KEY: string; UNSPLASH_ACCESS_KEY: string };
+  env: { OPENAI_API_KEY: string; UNSPLASH_ACCESS_KEY: string; AI_MODEL_VISUAL: string };
 }
 
 const AI_VISUAL_TYPES: VisualType[] = ['thumbnail'];
@@ -41,7 +41,7 @@ export async function processVisualGeneration(
     timestamp: new Date().toISOString(),
   });
 
-  const dalleClient = new DalleClient(env.OPENAI_API_KEY);
+  const dalleClient = new DalleClient(env.OPENAI_API_KEY, env.AI_MODEL_VISUAL);
   const unsplashClient = new UnsplashClient(env.UNSPLASH_ACCESS_KEY);
 
   await Promise.allSettled(

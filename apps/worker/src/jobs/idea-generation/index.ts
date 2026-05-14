@@ -19,8 +19,7 @@ interface Deps {
 
 const ANGLE_TYPES = ['news', 'innovation', 'contrarian', 'comedic', 'tangential_insight'] as const;
 
-function parseIdeasFromText(text: string, trendId: string, userId: string, trendRunId: string) {
-  // Try to parse as JSON; fall back to generating stub ideas
+function parseIdeasFromText(text: string, trendId: string, userId: string, trendRunId: string, model: string) {
   try {
     const parsed = JSON.parse(text) as Array<{ angle_type: string; hook_line: string; core_argument: string; platform_fit: string[] }>;
     return parsed.slice(0, 5).map((idea, i) => ({
@@ -32,7 +31,7 @@ function parseIdeasFromText(text: string, trendId: string, userId: string, trend
       coreArgument: idea.core_argument ?? 'Core argument placeholder',
       platformFit: idea.platform_fit ?? ['x_twitter', 'linkedin'],
       relevanceScore: (75 + Math.random() * 20).toFixed(2),
-      generationMeta: { model: 'claude-sonnet-4-6', stub: false },
+      generationMeta: { model, stub: false },
     }));
   } catch {
     return ANGLE_TYPES.slice(0, 5).map((angle, i) => ({
@@ -44,7 +43,7 @@ function parseIdeasFromText(text: string, trendId: string, userId: string, trend
       coreArgument: `This ${angle} perspective offers unique insights for creators.`,
       platformFit: ['x_twitter', 'linkedin', 'instagram'],
       relevanceScore: (75 + i * 2).toFixed(2),
-      generationMeta: { model: 'claude-sonnet-4-6', stub: true },
+      generationMeta: { model, stub: true },
     }));
   }
 }
@@ -89,7 +88,7 @@ export async function processIdeaGeneration(
         maxTokens: 1024,
       });
 
-      const parsedIdeas = parseIdeasFromText(result.text, trend.id, user_id, trend_run_id);
+      const parsedIdeas = parseIdeasFromText(result.text, trend.id, user_id, trend_run_id, aiClient.defaultModel);
       await db.insert(ideas).values(parsedIdeas);
     } catch (err) {
       logger.error({ err, trendId: trend.id }, 'Idea generation failed for trend');

@@ -32,7 +32,7 @@ const logger = pino({ level: workerEnv.LOG_LEVEL });
 const db = getDb(workerEnv.DATABASE_URL);
 const redis = new IORedis(workerEnv.REDIS_URL, { maxRetriesPerRequest: null });
 const queues = createQueues(redis);
-const aiClient = new AnthropicClient(workerEnv.ANTHROPIC_API_KEY, redis);
+const aiClient = new AnthropicClient(workerEnv.OPENROUTER_API_KEY, redis, workerEnv.AI_MODEL_GENERATION);
 const resend = new ResendClient(workerEnv.RESEND_API_KEY);
 const r2 = new R2StorageClient({
   accountId: workerEnv.R2_ACCOUNT_ID,

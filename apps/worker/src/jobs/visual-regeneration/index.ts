@@ -13,7 +13,7 @@ interface Deps {
   redis: Redis;
   logger: Logger;
   uploadToR2: (key: string, url: string, userId: string) => Promise<string>;
-  env: { OPENAI_API_KEY: string; UNSPLASH_ACCESS_KEY: string };
+  env: { OPENAI_API_KEY: string; UNSPLASH_ACCESS_KEY: string; AI_MODEL_VISUAL: string };
 }
 
 export async function processVisualRegeneration(
@@ -33,7 +33,7 @@ export async function processVisualRegeneration(
     let promptUsed: string;
 
     if (method === 'ai_dalle') {
-      const dalleClient = new DalleClient(env.OPENAI_API_KEY);
+      const dalleClient = new DalleClient(env.OPENAI_API_KEY, env.AI_MODEL_VISUAL);
       const prompt = instruction ?? `Professional image for ${visual.visualType}`;
       const result = await dalleClient.generate(prompt, visual.visualType);
       imageUrl = result.url;

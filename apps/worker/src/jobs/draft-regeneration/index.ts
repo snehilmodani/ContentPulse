@@ -68,7 +68,7 @@ export async function processDraftRegeneration(
         regenerationPrompt: instruction,
         version: draft.version + 1,
         previousVersions: [...prevVersions, { version: draft.version, content: draft.contentBody, regenerated_at: new Date().toISOString() }],
-        generationMeta: { model: 'claude-sonnet-4-6', input_tokens: result.inputTokens, output_tokens: result.outputTokens },
+        generationMeta: { model: aiClient.defaultModel, input_tokens: result.inputTokens, output_tokens: result.outputTokens },
         updatedAt: new Date(),
       })
       .where(eq(drafts.id, draft_id));

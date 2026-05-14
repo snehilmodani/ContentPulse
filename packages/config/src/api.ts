@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const dotenv = require('dotenv') as typeof import('dotenv');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require('path') as typeof import('path');
+  // __dirname is packages/config/src (source) or packages/config/dist (compiled); ../../.. = repo root
+  dotenv.config({ path: path.resolve(__dirname, '../../..', '.env') });
+} catch { /* dotenv not available in production — env vars pre-set by hosting */ }
+
 const schema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
@@ -12,7 +21,6 @@ const schema = z.object({
 
   ANTHROPIC_API_KEY: z.string().default(''),
   OPENAI_API_KEY: z.string().default(''),
-  PERPLEXITY_API_KEY: z.string().default(''),
 
   R2_ACCOUNT_ID: z.string().default(''),
   R2_ACCESS_KEY_ID: z.string().default(''),

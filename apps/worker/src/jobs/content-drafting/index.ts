@@ -90,7 +90,7 @@ ${formatInstruction}`,
 
       contentBody = safeParseContent(result.text);
       generationMeta = {
-        model: 'claude-sonnet-4-6',
+        model: aiClient.defaultModel,
         input_tokens: result.inputTokens,
         output_tokens: result.outputTokens,
         cache_read_tokens: result.cacheReadTokens,
