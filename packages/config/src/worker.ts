@@ -19,7 +19,7 @@ const schema = z.object({
   OPENAI_API_KEY: z.string().default(''),
 
   AI_MODEL_GENERATION: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
-  AI_MODEL_RESEARCH: z.string().default('perplexity/llama-3.1-sonar-small-128k-online'),
+  AI_MODEL_RESEARCH: z.string().default('nvidia/nemotron-3-super-120b-a12b:free'),
   AI_MODEL_VISUAL: z.string().default('dall-e-3'),
 
   X_API_BEARER_TOKEN: z.string().default(''),

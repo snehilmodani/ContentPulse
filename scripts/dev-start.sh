@@ -13,6 +13,10 @@ done
 # Give the OS a moment to release the ports
 sleep 1
 
+# Rebuild shared packages so workers pick up any config changes
+echo "Building packages..."
+pnpm --filter @contentpulse/config --filter @contentpulse/types --filter @contentpulse/db --filter @contentpulse/ai-client build
+
 # Ensure infra containers are running
 echo "Starting Docker services..."
 docker compose up -d

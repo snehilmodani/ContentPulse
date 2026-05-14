@@ -1,4 +1,4 @@
-import pRetry from 'p-retry';
+import pRetry, { AbortError } from 'p-retry';
 
 interface PerplexityResearchResult {
   topic_summary: string;
@@ -50,7 +50,13 @@ export class PerplexityClient {
         });
 
         if (!response.ok) {
-          throw new Error(`Perplexity API error: ${response.status}`);
+          const body = await response.text();
+          const msg = `OpenRouter research error ${response.status}: ${body}`;
+          // 4xx (except 429 rate-limit) are not transient — abort immediately
+          if (response.status !== 429 && response.status >= 400 && response.status < 500) {
+            throw new AbortError(msg);
+          }
+          throw new Error(msg);
         }
 
         const data = (await response.json()) as { choices: Array<{ message: { content: string } }> };
