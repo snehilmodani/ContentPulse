@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   usePackage,
   usePackageBrief,
@@ -286,13 +287,26 @@ const BRIEF_VISIBLE = new Set(['drafting', 'ready', 'approved', 'exported']);
 export default function PackagePage() {
   const params = useParams();
   const packageId = params['id'] as string;
+  const queryClient = useQueryClient();
   const { data: pkg, isLoading: pkgLoading } = usePackage(packageId);
   const isDrafting = pkg?.status === 'drafting';
   const { data: draftsData, isLoading: draftsLoading } = usePackageDrafts(packageId, isDrafting);
-  const { data: brief } = usePackageBrief(packageId);
+  const pkgStatus = pkg?.status ?? 'pending';
+  const { data: brief } = usePackageBrief(packageId, BRIEF_VISIBLE.has(pkgStatus));
   const exportPackage = useExportPackage();
 
-  const pkgStatus = pkg?.status ?? 'pending';
+  // When the package leaves an in-flight state, force a final refresh of drafts + brief
+  // so the UI reflects the completed generation without waiting for a stale poll cycle.
+  const prevStatusRef = useRef<string | undefined>();
+  useEffect(() => {
+    if (!pkg?.status) return;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = pkg.status;
+    if (prev && IN_FLIGHT.has(prev) && !IN_FLIGHT.has(pkg.status)) {
+      void queryClient.invalidateQueries({ queryKey: ['packages', packageId, 'drafts'] });
+      void queryClient.invalidateQueries({ queryKey: ['packages', packageId, 'brief'] });
+    }
+  }, [pkg?.status, packageId, queryClient]);
   const drafts = draftsData?.data ?? [];
   const showPipeline = IN_FLIGHT.has(pkgStatus);
   const showBrief = BRIEF_VISIBLE.has(pkgStatus) && !!brief;

@@ -35,11 +35,11 @@ export function usePackage(packageId: string) {
   });
 }
 
-export function usePackageBrief(packageId: string) {
+export function usePackageBrief(packageId: string, enabled = true) {
   return useQuery<TopicBriefResponse>({
     queryKey: ['packages', packageId, 'brief'],
     queryFn: () => apiFetch<TopicBriefResponse>(`/content-packages/${packageId}/brief`),
-    enabled: !!packageId,
+    enabled: !!packageId && enabled,
   });
 }
 
