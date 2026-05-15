@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 import {
   usePackage,
   usePackageBrief,
@@ -193,6 +194,7 @@ function DraftCard({ draft }: { draft: DraftResponse }) {
   const approveDraft = useApproveDraft();
   const rejectDraft = useRejectDraft();
   const regenerateDraft = useRegenerateDraft();
+  const isRegenerating = draft.status === 'regenerating' || regenerateDraft.isPending;
 
   const handleRegen = async () => {
     if (!regenInstruction.trim()) return;
@@ -210,7 +212,13 @@ function DraftCard({ draft }: { draft: DraftResponse }) {
   const cacheTokens = typeof meta?.cache_read_tokens === 'number' ? meta.cache_read_tokens : null;
 
   return (
-    <Card>
+    <Card className={cn('relative overflow-hidden', isRegenerating && 'border-blue-200 dark:border-blue-800')}>
+      {isRegenerating && (
+        <>
+          <div className="absolute inset-0 bg-blue-50/40 dark:bg-blue-950/20 pointer-events-none rounded-lg" />
+          <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-blue-100/70 to-transparent dark:via-blue-700/10 pointer-events-none" />
+        </>
+      )}
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium capitalize">
@@ -318,7 +326,7 @@ export default function PackagePage() {
       void queryClient.invalidateQueries({ queryKey: ['packages', packageId, 'brief'] });
     }
   }, [pkg?.status, packageId, queryClient]);
-  const drafts = draftsData?.data ?? [];
+  const drafts = (draftsData?.data ?? []).slice().sort((a, b) => a.format.localeCompare(b.format));
   const showPipeline = IN_FLIGHT.has(pkgStatus);
   const showBrief = BRIEF_VISIBLE.has(pkgStatus) && !!brief;
 

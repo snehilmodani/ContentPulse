@@ -48,7 +48,11 @@ export function usePackageDrafts(packageId: string, pollWhileDrafting = false) {
     queryKey: ['packages', packageId, 'drafts'],
     queryFn: () => apiFetch<{ data: DraftResponse[] }>(`/content-packages/${packageId}/drafts`),
     enabled: !!packageId,
-    refetchInterval: pollWhileDrafting ? 3000 : false,
+    refetchInterval: (query) => {
+      if (pollWhileDrafting) return 3000;
+      if (query.state.data?.data?.some((d) => d.status === 'regenerating')) return 3000;
+      return false;
+    },
   });
 }
 
