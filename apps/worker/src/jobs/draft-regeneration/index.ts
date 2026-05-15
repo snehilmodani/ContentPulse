@@ -33,15 +33,26 @@ export async function processDraftRegeneration(
 ): Promise<void> {
   const { db, redis, aiClient, logger } = deps;
   const { user_id, draft_id, content_package_id, format, instruction, topic_brief_id } = payload;
+  const startMs = Date.now();
+
+  logger.info({ userId: user_id, draftId: draft_id, contentPackageId: content_package_id, format, instruction, topicBriefId: topic_brief_id }, 'draft-regeneration started');
 
   const [draft] = await db.select().from(drafts).where(eq(drafts.id, draft_id)).limit(1);
-  if (!draft) throw new Error(`Draft ${draft_id} not found`);
+  if (!draft) {
+    logger.error({ userId: user_id, draftId: draft_id, contentPackageId: content_package_id }, 'Draft not found in DB');
+    throw new Error(`Draft ${draft_id} not found`);
+  }
+
+  logger.info({ userId: user_id, draftId: draft_id, contentPackageId: content_package_id, currentStatus: draft.status, currentVersion: draft.version }, 'Draft fetched from DB');
 
   const [brief] = await db.select().from(topicBriefs).where(eq(topicBriefs.id, topic_brief_id)).limit(1);
+  logger.info({ userId: user_id, draftId: draft_id, topicBriefId: topic_brief_id, found: !!brief }, 'Topic brief fetched');
 
   try {
     const systemPromptText = `You are a professional content writer. Regenerate the following ${format.replace(/_/g, ' ')} based on the instruction provided. ${FORMAT_INSTRUCTIONS[format as DraftFormat] ?? ''}`;
     const userPromptText = `Previous content: ${JSON.stringify(draft.contentBody).slice(0, 500)}\n\nInstruction: ${instruction}\n\nBrief context: ${brief?.topicSummary?.slice(0, 200) ?? ''}`;
+
+    logger.info({ userId: user_id, draftId: draft_id, contentPackageId: content_package_id, format, model: aiClient.defaultModel }, 'Calling AI for draft regeneration');
 
     const result = await aiClient.complete({
       userId: user_id,
@@ -49,6 +60,13 @@ export async function processDraftRegeneration(
       messages: [{ role: 'user', content: userPromptText }],
       maxTokens: 4096,
     });
+
+    const isRawFallback = 'raw_text' in safeParse(result.text);
+    if (isRawFallback) {
+      logger.warn({ userId: user_id, draftId: draft_id, format, responseSnippet: result.text.slice(0, 200) }, 'AI response was not valid JSON — stored as raw_text');
+    }
+
+    logger.info({ userId: user_id, draftId: draft_id, contentPackageId: content_package_id, format, inputTokens: result.inputTokens, outputTokens: result.outputTokens, cacheReadTokens: result.cacheReadTokens, cacheCreationTokens: result.cacheCreationTokens, rawFallback: isRawFallback, duration_ms: Date.now() - startMs }, 'AI response received — updating draft');
 
     const newContent = safeParse(result.text);
     const prevVersions = (draft.previousVersions as unknown[]) ?? [];
@@ -74,13 +92,15 @@ export async function processDraftRegeneration(
       })
       .where(eq(drafts.id, draft_id));
 
+    logger.info({ userId: user_id, draftId: draft_id, contentPackageId: content_package_id, format, newVersion: draft.version + 1, duration_ms: Date.now() - startMs }, 'draft-regeneration complete');
+
     await publishToUser(redis, user_id, {
       event: 'draft_regenerated',
       data: { draft_id, content_package_id, version: draft.version + 1 },
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    logger.error({ err, draft_id }, 'Draft regeneration failed');
+    logger.error({ err, userId: user_id, draftId: draft_id, contentPackageId: content_package_id, format, duration_ms: Date.now() - startMs }, 'Draft regeneration failed — resetting status to draft');
     await db
       .update(drafts)
       .set({ status: 'draft', updatedAt: new Date() })
