@@ -33,7 +33,10 @@ declare module 'fastify' {
 
 export async function buildApp(env: ApiEnv) {
   const fastify = Fastify({
-    logger: { level: env.LOG_LEVEL },
+    logger:
+      env.NODE_ENV !== 'production'
+        ? { level: env.LOG_LEVEL, transport: { target: 'pino-pretty', options: { colorize: true, sync: true } } }
+        : { level: env.LOG_LEVEL },
   });
 
   // core plugins

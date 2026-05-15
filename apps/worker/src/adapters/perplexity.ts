@@ -1,16 +1,19 @@
 import pRetry, { AbortError } from 'p-retry';
+import { z } from 'zod';
 
-interface PerplexityResearchResult {
-  topic_summary: string;
-  key_facts: Array<{ fact: string; source_url: string; confidence: number }>;
-  timeline: Array<{ date: string; event: string }>;
-  key_players: Array<{ name: string; role: string; org: string }>;
-  opposing_views: string;
-  regional_angle: string;
-  related_topics: string[];
-  sources: Array<{ title: string; url: string; publication: string; published_at: string }>;
-  fact_check_flags: Array<{ claim: string; flag: string; note: string }>;
-}
+const perplexityResearchSchema = z.object({
+  topic_summary: z.string().min(1),
+  key_facts: z.array(z.object({ fact: z.string(), source_url: z.string(), confidence: z.number() })).default([]),
+  timeline: z.array(z.object({ date: z.string(), event: z.string() })).default([]),
+  key_players: z.array(z.object({ name: z.string(), role: z.string(), org: z.string() })).default([]),
+  opposing_views: z.string().optional(),
+  regional_angle: z.string().optional(),
+  related_topics: z.array(z.string()).default([]),
+  sources: z.array(z.object({ title: z.string(), url: z.string(), publication: z.string(), published_at: z.string() })).default([]),
+  fact_check_flags: z.array(z.object({ claim: z.string(), flag: z.string(), note: z.string() })).default([]),
+}).passthrough();
+
+export type PerplexityResearchResult = z.infer<typeof perplexityResearchSchema>;
 
 export class PerplexityClient {
   private readonly apiKey: string;
@@ -28,8 +31,11 @@ export class PerplexityClient {
 
     return pRetry(
       async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 120_000);
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
@@ -38,16 +44,28 @@ export class PerplexityClient {
           },
           body: JSON.stringify({
             model: this.model,
+            response_format: { type: 'json_object' },
             messages: [
               {
                 role: 'user',
-                content: `Research the following topic thoroughly for a content creator in ${region}: "${topic}".
-                Provide: a summary, key facts with sources, timeline of events, key players, opposing views, regional angle, related topics, and fact-check flags.
-                Return as structured JSON.`,
+                content: `Research the topic "${topic}" thoroughly for a content creator in ${region}.
+
+Return a single JSON object with EXACTLY these keys (and no others):
+- topic_summary: string — 2-3 paragraph plain-text summary
+- key_facts: array of { fact: string, source_url: string, confidence: number }
+- timeline: array of { date: string, event: string }
+- key_players: array of { name: string, role: string, org: string }
+- opposing_views: string
+- regional_angle: string — relevance to ${region}
+- related_topics: array of strings
+- sources: array of { title: string, url: string, publication: string, published_at: string }
+- fact_check_flags: array of { claim: string, flag: string, note: string }
+
+Do not wrap the JSON in markdown fences. Do not include any extra keys.`,
               },
             ],
           }),
-        });
+        }).finally(() => clearTimeout(timeout));
 
         if (!response.ok) {
           const body = await response.text();
@@ -62,11 +80,18 @@ export class PerplexityClient {
         const data = (await response.json()) as { choices: Array<{ message: { content: string } }> };
         const content = data.choices[0]?.message.content ?? '{}';
 
+        let parsed: unknown;
         try {
-          return JSON.parse(content) as PerplexityResearchResult;
-        } catch {
-          return this.stubResearch(topic, region);
+          parsed = JSON.parse(content);
+        } catch (err) {
+          throw new AbortError(`Research LLM returned non-JSON content: ${(err as Error).message}`);
         }
+        const result = perplexityResearchSchema.safeParse(parsed);
+        if (!result.success) {
+          const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+          throw new AbortError(`Research LLM response failed schema validation: ${issues}`);
+        }
+        return result.data;
       },
       { retries: 2, factor: 2, minTimeout: 2000 },
     );

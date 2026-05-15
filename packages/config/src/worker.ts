@@ -18,8 +18,8 @@ const schema = z.object({
   OPENROUTER_API_KEY: z.string().default(''),
   OPENAI_API_KEY: z.string().default(''),
 
-  AI_MODEL_GENERATION: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
-  AI_MODEL_RESEARCH: z.string().default('nvidia/nemotron-3-super-120b-a12b:free'),
+  AI_MODEL_GENERATION: z.string().default('anthropic/claude-haiku-4.5'),
+  AI_MODEL_RESEARCH: z.string().default('anthropic/claude-haiku-4.5'),
   AI_MODEL_VISUAL: z.string().default('dall-e-3'),
 
   X_API_BEARER_TOKEN: z.string().default(''),
@@ -46,6 +46,7 @@ const schema = z.object({
   SENTRY_DSN_BACKEND: z.string().default(''),
 
   BYPASS_VISUAL_GENERATION: z.string().default(''),
+  BYPASS_RESEARCH: z.string().default(''),
 
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 });

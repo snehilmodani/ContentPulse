@@ -30,7 +30,7 @@ import type {
 
 const logger = pino(
   workerEnv.NODE_ENV !== 'production'
-    ? { level: workerEnv.LOG_LEVEL, transport: { target: 'pino-pretty', options: { colorize: true } } }
+    ? { level: workerEnv.LOG_LEVEL, transport: { target: 'pino-pretty', options: { colorize: true, sync: true } } }
     : { level: workerEnv.LOG_LEVEL },
 );
 const db = getDb(workerEnv.DATABASE_URL);

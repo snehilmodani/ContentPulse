@@ -14,7 +14,7 @@ interface Deps {
   redis: Redis;
   queues: Record<string, Queue<JobPayload>>;
   logger: Logger;
-  env: { OPENROUTER_API_KEY: string; AI_MODEL_RESEARCH: string };
+  env: { OPENROUTER_API_KEY: string; AI_MODEL_RESEARCH: string; BYPASS_RESEARCH: string };
 }
 
 export async function processResearchBrief(
@@ -37,18 +37,36 @@ export async function processResearchBrief(
 
   const perplexity = new PerplexityClient(env.OPENROUTER_API_KEY, env.AI_MODEL_RESEARCH);
 
-  const researchPrompt = `Research the following topic thoroughly for a content creator in ${domain_profile.region}: "${idea.hook_line}".\nProvide: a summary, key facts with sources, timeline of events, key players, opposing views, regional angle, related topics, and fact-check flags.\nReturn as structured JSON.`;
+  const researchPrompt = `Research the topic "${idea.hook_line}" thoroughly for a content creator in ${domain_profile.region}.\n\nReturn a single JSON object with EXACTLY these keys (and no others):\n- topic_summary: string — 2-3 paragraph plain-text summary\n- key_facts: array of { fact: string, source_url: string, confidence: number }\n- timeline: array of { date: string, event: string }\n- key_players: array of { name: string, role: string, org: string }\n- opposing_views: string\n- regional_angle: string — relevance to ${domain_profile.region}\n- related_topics: array of strings\n- sources: array of { title: string, url: string, publication: string, published_at: string }\n- fact_check_flags: array of { claim: string, flag: string, note: string }\n\nDo not wrap the JSON in markdown fences. Do not include any extra keys.`;
+
+  logger.info({ content_package_id, model: env.AI_MODEL_RESEARCH }, 'Starting research');
 
   let researchResult;
-  try {
-    researchResult = await perplexity.research(idea.hook_line, domain_profile.region);
-  } catch (err) {
-    logger.error({ err, content_package_id }, 'Perplexity research failed');
-    await db
-      .update(contentPackages)
-      .set({ status: 'rejected', updatedAt: new Date() })
-      .where(eq(contentPackages.id, content_package_id));
-    throw err;
+  if (env.BYPASS_RESEARCH === 'true') {
+    logger.info({ content_package_id }, 'Research bypassed — using stub data');
+    researchResult = {
+      topic_summary: `[STUB] Research summary for "${idea.hook_line}" targeting ${domain_profile.region}.`,
+      key_facts: [{ fact: `Key fact about ${idea.hook_line}`, source_url: 'https://example.com', confidence: 0.9 }],
+      timeline: [{ date: new Date().toISOString().split('T')[0] ?? '2026-01-01', event: `Initial event for ${idea.hook_line}` }],
+      key_players: [{ name: 'Key Person', role: 'Expert', org: 'Organization' }],
+      opposing_views: `Some analysts disagree about ${idea.hook_line}.`,
+      regional_angle: `Specific relevance to ${domain_profile.region}: this topic has local implications.`,
+      related_topics: ['technology', 'innovation', 'business'],
+      sources: [{ title: `Article about ${idea.hook_line}`, url: 'https://example.com/article', publication: 'Example News', published_at: new Date().toISOString() }],
+      fact_check_flags: [] as Array<{ claim: string; flag: string; note: string }>,
+    };
+  } else {
+    try {
+      researchResult = await perplexity.research(idea.hook_line, domain_profile.region);
+      logger.info({ content_package_id }, 'Research complete');
+    } catch (err) {
+      logger.error({ err, content_package_id }, 'Perplexity research failed');
+      await db
+        .update(contentPackages)
+        .set({ status: 'rejected', updatedAt: new Date() })
+        .where(eq(contentPackages.id, content_package_id));
+      throw err;
+    }
   }
 
   const [brief] = await db
@@ -60,8 +78,8 @@ export async function processResearchBrief(
       keyFacts: researchResult.key_facts,
       timeline: researchResult.timeline,
       keyPlayers: researchResult.key_players,
-      opposingViews: researchResult.opposing_views,
-      regionalAngle: researchResult.regional_angle,
+      opposingViews: researchResult.opposing_views ?? null,
+      regionalAngle: researchResult.regional_angle ?? null,
       relatedTopics: researchResult.related_topics,
       sources: researchResult.sources,
       factCheckFlags: researchResult.fact_check_flags,

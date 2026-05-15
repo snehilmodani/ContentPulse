@@ -1,5 +1,6 @@
 import { Queue, Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
+import type { Logger } from 'pino';
 import type { JobPayload } from '@contentpulse/types';
 
 export const QUEUE_NAMES = [
@@ -39,10 +40,22 @@ export function createWorker<T extends JobPayload>(
   redis: Redis,
   concurrency: number,
   processor: (job: { id?: string; data: T }) => Promise<void>,
+  logger: Logger,
 ): Worker<JobPayload> {
-  return new Worker<JobPayload>(
+  const worker = new Worker<JobPayload>(
     name,
-    async (job) => processor(job as unknown as { id?: string; data: T }),
+    async (job) => {
+      const start = Date.now();
+      logger.info({ queue: name, jobId: job.id }, 'job started');
+      await processor(job as unknown as { id?: string; data: T });
+      logger.info({ queue: name, jobId: job.id, duration_ms: Date.now() - start }, 'job completed');
+    },
     { connection: redis, concurrency, lockDuration: 120_000, maxStalledCount: 3 },
   );
+
+  worker.on('failed', (job, err) => {
+    logger.error({ queue: name, jobId: job?.id, err }, 'job failed');
+  });
+
+  return worker;
 }
