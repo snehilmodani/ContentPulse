@@ -148,6 +148,7 @@ export async function packageRoutes(fastify: FastifyInstance & { db: Db }) {
           format: d.format,
           status: d.status,
           content_body: d.contentBody,
+          generation_meta: d.generationMeta,
           version: d.version,
           approved_at: d.approvedAt?.toISOString() ?? null,
           rejected_at: d.rejectedAt?.toISOString() ?? null,

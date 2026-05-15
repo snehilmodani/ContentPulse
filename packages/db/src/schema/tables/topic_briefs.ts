@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { contentPackages } from './content_packages';
 import { users } from './users';
@@ -18,7 +19,7 @@ export const topicBriefs = pgTable(
     keyPlayers: jsonb('key_players').notNull().default([]),
     opposingViews: text('opposing_views'),
     regionalAngle: text('regional_angle'),
-    relatedTopics: text('related_topics').array().notNull().default([]),
+    relatedTopics: text('related_topics').array().notNull().default(sql`'{}'::text[]`),
     sources: jsonb('sources').notNull().default([]),
     factCheckFlags: jsonb('fact_check_flags').notNull().default([]),
     researchMeta: jsonb('research_meta').notNull().default({}),

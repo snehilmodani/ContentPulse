@@ -9,6 +9,7 @@ export const QUEUE_NAMES = [
   'content-drafting',
   'draft-regeneration',
   'visual-generation',
+  'visual-regeneration',
   'export-package',
   'notification-send',
 ] as const;
@@ -42,6 +43,6 @@ export function createWorker<T extends JobPayload>(
   return new Worker<JobPayload>(
     name,
     async (job) => processor(job as unknown as { id?: string; data: T }),
-    { connection: redis, concurrency },
+    { connection: redis, concurrency, lockDuration: 120_000, maxStalledCount: 3 },
   );
 }

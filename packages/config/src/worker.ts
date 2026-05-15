@@ -45,6 +45,8 @@ const schema = z.object({
 
   SENTRY_DSN_BACKEND: z.string().default(''),
 
+  BYPASS_VISUAL_GENERATION: z.string().default(''),
+
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 });
 

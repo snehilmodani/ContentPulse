@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { brandingModeEnum } from '../enums';
 import { users } from './users';
@@ -11,7 +12,7 @@ export const brandKits = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     logoR2Key: text('logo_r2_key'),
     logoUrl: text('logo_url'),
-    primaryColors: text('primary_colors').array().notNull().default([]),
+    primaryColors: text('primary_colors').array().notNull().default(sql`'{}'::text[]`),
     fontPreferences: jsonb('font_preferences').notNull().default({}),
     brandingMode: brandingModeEnum('branding_mode').notNull().default('flexible'),
     extraAssets: jsonb('extra_assets').notNull().default([]),

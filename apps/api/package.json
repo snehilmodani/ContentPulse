@@ -22,6 +22,7 @@
     "@fastify/rate-limit": "^9.1.0",
     "@fastify/websocket": "^10.0.1",
     "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.31.4",
     "bullmq": "^5.12.12",
     "fastify": "^4.28.1",

@@ -93,7 +93,7 @@ const workers = [
     processDraftRegeneration(job.data, { db, redis, aiClient, logger }),
   ),
 
-  createWorker<VisualRegenerationJobPayload>('visual-generation', redis, 5, (job) =>
+  createWorker<VisualRegenerationJobPayload>('visual-regeneration', redis, 5, (job) =>
     processVisualRegeneration(job.data, {
       db,
       redis,
@@ -121,8 +121,18 @@ logger.info('Worker process started');
 async function shutdown() {
   logger.info('Shutting down worker...');
   scheduler.stop();
-  await Promise.all(workers.map((w) => w.close()));
-  await Promise.all(Object.values(queues).map((q) => q.close()));
+
+  // Give active jobs up to 10 s to finish; after that exit anyway so tsx watch
+  // doesn't escalate to SIGKILL (which would leave jobs with a stall count).
+  const drainTimeout = new Promise<void>((resolve) =>
+    setTimeout(() => {
+      logger.warn('Shutdown drain timeout reached — forcing close');
+      resolve();
+    }, 10_000).unref(),
+  );
+  await Promise.race([Promise.all(workers.map((w) => w.close())), drainTimeout]);
+
+  await Promise.allSettled(Object.values(queues).map((q) => q.close()));
   redis.disconnect();
   process.exit(0);
 }

@@ -8,6 +8,7 @@ export { AiRateLimitError, AiTimeoutError, TokenBudgetExceededError };
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const FALLBACK_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 const DEFAULT_TOKEN_CAP = 1_000_000;
+const REQUEST_TIMEOUT_MS = 90_000; // 90 s — free-tier models can be slow but shouldn't hang forever
 
 export interface SystemBlock {
   text: string;
@@ -44,6 +45,8 @@ export class AnthropicClient {
       ? new OpenAI({
           apiKey,
           baseURL: OPENROUTER_BASE_URL,
+          timeout: REQUEST_TIMEOUT_MS,
+          maxRetries: 0, // pRetry handles retries below
           defaultHeaders: {
             'HTTP-Referer': 'https://contentpulse.app',
             'X-Title': 'ContentPulse',
@@ -78,6 +81,10 @@ export class AnthropicClient {
             messages,
           });
         } catch (err) {
+          // SDK throws APIConnectionTimeoutError when our `timeout` option fires
+          if (err instanceof OpenAI.APIConnectionTimeoutError) {
+            throw new AiTimeoutError('Request timed out after 90 s');
+          }
           if (err instanceof OpenAI.APIError) {
             if (err.status === 429) {
               // Honour Retry-After if present, otherwise wait 15 s before letting pRetry retry

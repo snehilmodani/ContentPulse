@@ -2,14 +2,22 @@
 
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { usePackage, usePackageDrafts, useApproveDraft, useRejectDraft, useRegenerateDraft, useExportPackage } from '@/lib/hooks/use-packages';
+import {
+  usePackage,
+  usePackageBrief,
+  usePackageDrafts,
+  useApproveDraft,
+  useRejectDraft,
+  useRegenerateDraft,
+  useExportPackage,
+} from '@/lib/hooks/use-packages';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { CheckCircle, XCircle, RefreshCw, Download, Loader2 } from 'lucide-react';
-import type { DraftResponse } from '@contentpulse/types';
+import { CheckCircle, XCircle, RefreshCw, Download, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import type { DraftResponse, TopicBriefResponse } from '@contentpulse/types';
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   draft: 'secondary',
@@ -92,6 +100,89 @@ function PipelineProgress({ pkgStatus, draftsCount }: { pkgStatus: string; draft
   );
 }
 
+// ─── Collapsible prompt block ────────────────────────────────────────────────
+
+function PromptBlock({ label, text }: { label: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="text-xs">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {label}
+      </button>
+      {open && (
+        <pre className="mt-1.5 bg-muted/60 border border-border rounded p-2.5 overflow-auto max-h-48 whitespace-pre-wrap leading-relaxed">
+          {text}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+// ─── Research brief card ─────────────────────────────────────────────────────
+
+function ResearchBriefCard({ brief }: { brief: TopicBriefResponse }) {
+  const [open, setOpen] = useState(false);
+  const meta = brief.research_meta as Record<string, unknown>;
+  const promptUsed = typeof meta.prompt_used === 'string' ? meta.prompt_used : null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-2 text-left w-full"
+        >
+          {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          <CardTitle className="text-base">Research Brief</CardTitle>
+        </button>
+      </CardHeader>
+      {open && (
+        <CardContent className="space-y-4 pt-0">
+          {promptUsed && <PromptBlock label="Input prompt" text={promptUsed} />}
+
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">Summary</p>
+            <p className="text-sm leading-relaxed">{brief.topic_summary}</p>
+          </div>
+
+          {brief.key_facts.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Key facts</p>
+              <ul className="space-y-1">
+                {brief.key_facts.slice(0, 5).map((kf, i) => (
+                  <li key={i} className="text-sm flex gap-2">
+                    <span className="text-muted-foreground shrink-0">•</span>
+                    <span>{kf.fact}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {brief.sources.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Sources</p>
+              <ul className="space-y-0.5">
+                {brief.sources.slice(0, 4).map((s, i) => (
+                  <li key={i} className="text-xs text-muted-foreground truncate">
+                    <a href={s.url} target="_blank" rel="noreferrer" className="hover:underline">
+                      {s.title} — {s.publication}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 // ─── Draft card ─────────────────────────────────────────────────────────────
 
 function DraftCard({ draft }: { draft: DraftResponse }) {
@@ -108,7 +199,13 @@ function DraftCard({ draft }: { draft: DraftResponse }) {
     setRegenInstruction('');
   };
 
-  const contentPreview = JSON.stringify(draft.content_body, null, 2).slice(0, 300);
+  const meta = draft.generation_meta as Record<string, unknown> | undefined;
+  const systemPrompt = typeof meta?.system_prompt === 'string' ? meta.system_prompt : null;
+  const promptUsed = typeof meta?.prompt_used === 'string' ? meta.prompt_used : null;
+  const model = typeof meta?.model === 'string' ? meta.model.split('/').pop() : null;
+  const inputTokens = typeof meta?.input_tokens === 'number' ? meta.input_tokens : null;
+  const outputTokens = typeof meta?.output_tokens === 'number' ? meta.output_tokens : null;
+  const cacheTokens = typeof meta?.cache_read_tokens === 'number' ? meta.cache_read_tokens : null;
 
   return (
     <Card>
@@ -124,12 +221,30 @@ function DraftCard({ draft }: { draft: DraftResponse }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-40 whitespace-pre-wrap">
-          {contentPreview}
-          {contentPreview.length >= 300 ? '...' : ''}
-        </pre>
+        {(systemPrompt ?? promptUsed) && (
+          <div className="space-y-1.5">
+            {systemPrompt && <PromptBlock label="System prompt" text={systemPrompt} />}
+            {promptUsed && <PromptBlock label="User prompt" text={promptUsed} />}
+          </div>
+        )}
 
-        <div className="flex items-center gap-2">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Output</p>
+          <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-56 whitespace-pre-wrap">
+            {JSON.stringify(draft.content_body, null, 2)}
+          </pre>
+        </div>
+
+        {model && (
+          <p className="text-xs text-muted-foreground">
+            {model}
+            {inputTokens !== null && ` · ${inputTokens} in`}
+            {outputTokens !== null && ` / ${outputTokens} out`}
+            {cacheTokens !== null && cacheTokens > 0 && ` · ${cacheTokens} cached`}
+          </p>
+        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
           {draft.status !== 'approved' && (
             <Button size="sm" onClick={() => approveDraft.mutate(draft.id)} disabled={approveDraft.isPending} className="gap-1">
               <CheckCircle className="h-3 w-3" /> Approve
@@ -166,6 +281,7 @@ function DraftCard({ draft }: { draft: DraftResponse }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 const IN_FLIGHT = new Set(['pending', 'researching', 'drafting', 'rejected']);
+const BRIEF_VISIBLE = new Set(['drafting', 'ready', 'approved', 'exported']);
 
 export default function PackagePage() {
   const params = useParams();
@@ -173,11 +289,13 @@ export default function PackagePage() {
   const { data: pkg, isLoading: pkgLoading } = usePackage(packageId);
   const isDrafting = pkg?.status === 'drafting';
   const { data: draftsData, isLoading: draftsLoading } = usePackageDrafts(packageId, isDrafting);
+  const { data: brief } = usePackageBrief(packageId);
   const exportPackage = useExportPackage();
 
   const pkgStatus = pkg?.status ?? 'pending';
   const drafts = draftsData?.data ?? [];
   const showPipeline = IN_FLIGHT.has(pkgStatus);
+  const showBrief = BRIEF_VISIBLE.has(pkgStatus) && !!brief;
 
   const pageSubtitle: Record<string, string> = {
     pending: 'Waiting to start',
@@ -220,6 +338,8 @@ export default function PackagePage() {
       ) : showPipeline ? (
         <PipelineProgress pkgStatus={pkgStatus} draftsCount={drafts.length} />
       ) : null}
+
+      {showBrief && <ResearchBriefCard brief={brief} />}
 
       <div className="space-y-3">
         <h2 className="text-xl font-semibold">Drafts ({drafts.length})</h2>

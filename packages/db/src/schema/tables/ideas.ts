@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { index, jsonb, numeric, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { angleTypeEnum, effortEstimateEnum, ideaStatusEnum } from '../enums';
 import { trendRuns } from './trend_runs';
@@ -20,7 +21,7 @@ export const ideas = pgTable(
     angleType: angleTypeEnum('angle_type').notNull(),
     hookLine: text('hook_line').notNull(),
     coreArgument: text('core_argument').notNull(),
-    platformFit: text('platform_fit').array().notNull().default([]),
+    platformFit: text('platform_fit').array().notNull().default(sql`'{}'::text[]`),
     effortEstimate: effortEstimateEnum('effort_estimate').notNull().default('medium'),
     relevanceScore: numeric('relevance_score', { precision: 5, scale: 2 }).notNull().default('0'),
     status: ideaStatusEnum('status').notNull().default('pending'),

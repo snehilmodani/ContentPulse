@@ -1,3 +1,7 @@
+import { config } from 'dotenv';
+import { resolve } from 'path';
+config({ path: resolve(__dirname, '../../../.env') });
+
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { getDb } from '../src/client';
 

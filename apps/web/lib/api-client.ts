@@ -43,7 +43,7 @@ export async function apiFetch<T>(
 
   const makeRequest = async (authToken: string | null) => {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...(options.headers as Record<string, string> ?? {}),
     };
     if (authToken) headers['Authorization'] = `Bearer ${authToken}`;

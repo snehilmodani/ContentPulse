@@ -10,7 +10,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.26.1",
+    "openai": "^4.57.0",
     "ioredis": "^5.4.1",
     "p-retry": "^6.2.0"
   },

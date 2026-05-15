@@ -17,7 +17,7 @@ interface Deps {
   queues: Record<string, Queue<JobPayload>>;
   logger: Logger;
   uploadToR2: (key: string, url: string, userId: string) => Promise<string>;
-  env: { OPENAI_API_KEY: string; UNSPLASH_ACCESS_KEY: string; AI_MODEL_VISUAL: string };
+  env: { OPENAI_API_KEY: string; UNSPLASH_ACCESS_KEY: string; AI_MODEL_VISUAL: string; BYPASS_VISUAL_GENERATION: string };
 }
 
 const AI_VISUAL_TYPES: VisualType[] = ['thumbnail'];
@@ -41,70 +41,95 @@ export async function processVisualGeneration(
     timestamp: new Date().toISOString(),
   });
 
-  const dalleClient = new DalleClient(env.OPENAI_API_KEY, env.AI_MODEL_VISUAL);
-  const unsplashClient = new UnsplashClient(env.UNSPLASH_ACCESS_KEY);
-
-  await Promise.allSettled(
-    visual_types.map(async (visualType) => {
-      const dims = getDimensions(visualType);
-      const useAi = AI_VISUAL_TYPES.includes(visualType);
-
-      try {
-        let imageUrl: string;
-        let method: 'ai_dalle' | 'web_unsplash';
-        let promptUsed: string;
-
-        if (useAi) {
-          const prompt = `Professional content thumbnail for "${payload.trend_category}" topic, modern design, high quality`;
-          const result = await dalleClient.generate(prompt, visualType);
-          imageUrl = result.url;
-          method = 'ai_dalle';
-          promptUsed = result.revisedPrompt;
-        } else {
-          const result = await unsplashClient.search(payload.trend_category);
-          imageUrl = result.url;
-          method = 'web_unsplash';
-          promptUsed = payload.trend_category;
-        }
-
-        const key = `visuals/${user_id}/${content_package_id}/${visualType}-${Date.now()}.jpg`;
-        let cdnUrl: string;
-
-        try {
-          const buffer = await fetchImageBuffer(imageUrl);
-          cdnUrl = await uploadToR2(key, imageUrl, user_id);
-          void buffer;
-        } catch {
-          cdnUrl = imageUrl;
-        }
-
+  if (env.BYPASS_VISUAL_GENERATION) {
+    logger.info({ content_package_id }, 'Visual generation bypassed — inserting sample images');
+    await Promise.all(
+      visual_types.map(async (visualType) => {
+        const dims = getDimensions(visualType);
+        const seed = `${visualType}-${content_package_id.slice(0, 8)}`;
+        const cdnUrl = `https://picsum.photos/seed/${seed}/${dims.width}/${dims.height}`;
+        const key = `visuals/${user_id}/${content_package_id}/${visualType}-bypass.jpg`;
         await db.insert(visuals).values({
           contentPackageId: content_package_id,
           userId: user_id,
           visualType,
           widthPx: dims.width,
           heightPx: dims.height,
-          generationMethod: method,
+          generationMethod: 'web_unsplash',
           status: 'ready',
           r2Key: key,
           cdnUrl,
-          promptUsed,
-          sourceUrl: imageUrl,
+          promptUsed: `[bypass] ${payload.trend_category}`,
+          sourceUrl: cdnUrl,
         });
-      } catch (err) {
-        logger.error({ err, visualType, content_package_id }, 'Visual generation failed');
-        await db.insert(visuals).values({
-          contentPackageId: content_package_id,
-          userId: user_id,
-          visualType,
-          widthPx: dims.width,
-          heightPx: dims.height,
-          generationMethod: 'ai_dalle',
-          status: 'generating',
-        });
-      }
-    }),
-  );
+      }),
+    );
+  } else {
+    const dalleClient = new DalleClient(env.OPENAI_API_KEY, env.AI_MODEL_VISUAL);
+    const unsplashClient = new UnsplashClient(env.UNSPLASH_ACCESS_KEY);
+
+    await Promise.allSettled(
+      visual_types.map(async (visualType) => {
+        const dims = getDimensions(visualType);
+        const useAi = AI_VISUAL_TYPES.includes(visualType);
+
+        try {
+          let imageUrl: string;
+          let method: 'ai_dalle' | 'web_unsplash';
+          let promptUsed: string;
+
+          if (useAi) {
+            const prompt = `Professional content thumbnail for "${payload.trend_category}" topic, modern design, high quality`;
+            const result = await dalleClient.generate(prompt, visualType);
+            imageUrl = result.url;
+            method = 'ai_dalle';
+            promptUsed = result.revisedPrompt;
+          } else {
+            const result = await unsplashClient.search(payload.trend_category);
+            imageUrl = result.url;
+            method = 'web_unsplash';
+            promptUsed = payload.trend_category;
+          }
+
+          const key = `visuals/${user_id}/${content_package_id}/${visualType}-${Date.now()}.jpg`;
+          let cdnUrl: string;
+
+          try {
+            const buffer = await fetchImageBuffer(imageUrl);
+            cdnUrl = await uploadToR2(key, imageUrl, user_id);
+            void buffer;
+          } catch {
+            cdnUrl = imageUrl;
+          }
+
+          await db.insert(visuals).values({
+            contentPackageId: content_package_id,
+            userId: user_id,
+            visualType,
+            widthPx: dims.width,
+            heightPx: dims.height,
+            generationMethod: method,
+            status: 'ready',
+            r2Key: key,
+            cdnUrl,
+            promptUsed,
+            sourceUrl: imageUrl,
+          });
+        } catch (err) {
+          logger.error({ err, visualType, content_package_id }, 'Visual generation failed');
+          await db.insert(visuals).values({
+            contentPackageId: content_package_id,
+            userId: user_id,
+            visualType,
+            widthPx: dims.width,
+            heightPx: dims.height,
+            generationMethod: 'ai_dalle',
+            status: 'generating',
+          });
+        }
+      }),
+    );
+  }
 
   await publishToUser(redis, user_id, {
     event: 'pipeline_stage_completed',

@@ -37,6 +37,8 @@ export async function processResearchBrief(
 
   const perplexity = new PerplexityClient(env.OPENROUTER_API_KEY, env.AI_MODEL_RESEARCH);
 
+  const researchPrompt = `Research the following topic thoroughly for a content creator in ${domain_profile.region}: "${idea.hook_line}".\nProvide: a summary, key facts with sources, timeline of events, key players, opposing views, regional angle, related topics, and fact-check flags.\nReturn as structured JSON.`;
+
   let researchResult;
   try {
     researchResult = await perplexity.research(idea.hook_line, domain_profile.region);
@@ -63,7 +65,7 @@ export async function processResearchBrief(
       relatedTopics: researchResult.related_topics,
       sources: researchResult.sources,
       factCheckFlags: researchResult.fact_check_flags,
-      researchMeta: { perplexity_model: env.AI_MODEL_RESEARCH },
+      researchMeta: { perplexity_model: env.AI_MODEL_RESEARCH, prompt_used: researchPrompt },
     })
     .returning();
 

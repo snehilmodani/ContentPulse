@@ -74,6 +74,8 @@ Always return valid JSON matching the requested format exactly.`,
     if (fi > 0) await new Promise((r) => setTimeout(r, 4_000));
     const formatInstruction = FORMAT_INSTRUCTIONS[format];
 
+    const userMessage = `Write a ${format.replace(/_/g, ' ')} about "${idea.hookLine}".\nKey facts: ${JSON.stringify(brief.keyFacts).slice(0, 500)}\n${formatInstruction}`;
+
     let contentBody: Record<string, unknown>;
     let generationMeta: Record<string, unknown> = {};
 
@@ -81,14 +83,7 @@ Always return valid JSON matching the requested format exactly.`,
       const result = await aiClient.complete({
         userId: user_id,
         systemBlocks: [systemBlock],
-        messages: [
-          {
-            role: 'user',
-            content: `Write a ${format.replace(/_/g, ' ')} about "${idea.hookLine}".
-Key facts: ${JSON.stringify(brief.keyFacts).slice(0, 500)}
-${formatInstruction}`,
-          },
-        ],
+        messages: [{ role: 'user', content: userMessage }],
         maxTokens: 2048,
       });
 
@@ -99,6 +94,8 @@ ${formatInstruction}`,
         output_tokens: result.outputTokens,
         cache_read_tokens: result.cacheReadTokens,
         cache_creation_tokens: result.cacheCreationTokens,
+        system_prompt: systemBlock.text,
+        prompt_used: userMessage,
       };
     } catch (err) {
       logger.error({ err, format, content_package_id }, 'Draft generation failed');

@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { index, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { draftFormatEnum, packageStatusEnum } from '../enums';
 import { ideas } from './ideas';
@@ -17,7 +18,7 @@ export const contentPackages = pgTable(
     selectedFormats: draftFormatEnum('selected_formats')
       .array()
       .notNull()
-      .default(['x_thread', 'linkedin_article', 'instagram_post', 'reel_script', 'blog_post']),
+      .default(sql`ARRAY['x_thread','linkedin_article','instagram_post','reel_script','blog_post']::draft_format[]`),
     pipelineProgress: jsonb('pipeline_progress').notNull().default({}),
     exportR2Key: text('export_r2_key'),
     exportUrl: text('export_url'),
