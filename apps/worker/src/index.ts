@@ -28,7 +28,11 @@ import type {
   VisualRegenerationJobPayload,
 } from '@contentpulse/types';
 
-const logger = pino({ level: workerEnv.LOG_LEVEL });
+const logger = pino(
+  workerEnv.NODE_ENV !== 'production'
+    ? { level: workerEnv.LOG_LEVEL, transport: { target: 'pino-pretty', options: { colorize: true } } }
+    : { level: workerEnv.LOG_LEVEL },
+);
 const db = getDb(workerEnv.DATABASE_URL);
 const redis = new IORedis(workerEnv.REDIS_URL, { maxRetriesPerRequest: null });
 const queues = createQueues(redis);
@@ -44,19 +48,19 @@ const r2 = new R2StorageClient({
 
 const workers = [
   createWorker<TrendHarvestingJobPayload>('trend-harvesting', redis, 5, (job) =>
-    processTrendHarvesting(job.data, { db, redis, aiClient, queues, logger, env: workerEnv }),
+    processTrendHarvesting(job.data, { db, redis, aiClient, queues, logger, env: workerEnv }), logger,
   ),
 
   createWorker<IdeaGenerationJobPayload>('idea-generation', redis, 10, (job) =>
-    processIdeaGeneration(job.data, { db, redis, aiClient, queues, logger }),
+    processIdeaGeneration(job.data, { db, redis, aiClient, queues, logger }), logger,
   ),
 
   createWorker<ResearchBriefJobPayload>('research-brief', redis, 5, (job) =>
-    processResearchBrief(job.data, { db, redis, queues, logger, env: workerEnv }),
+    processResearchBrief(job.data, { db, redis, queues, logger, env: workerEnv }), logger,
   ),
 
   createWorker<ContentDraftingJobPayload>('content-drafting', redis, 5, (job) =>
-    processContentDrafting(job.data, { db, redis, aiClient, queues, logger }),
+    processContentDrafting(job.data, { db, redis, aiClient, queues, logger }), logger,
   ),
 
   createWorker<VisualGenerationJobPayload>('visual-generation', redis, 10, (job) =>
@@ -71,7 +75,7 @@ const workers = [
         const buf = Buffer.from(await resp.arrayBuffer());
         return r2.upload(key, buf, 'image/jpeg');
       },
-    }),
+    }), logger,
   ),
 
   createWorker<ExportPackageJobPayload>('export-package', redis, 10, (job) =>
@@ -82,15 +86,15 @@ const workers = [
       logger,
       uploadZipToR2: (key, buf) => r2.upload(key, buf, 'application/zip'),
       getSignedUrl: (key) => r2.getSignedDownloadUrl(key, 86400),
-    }),
+    }), logger,
   ),
 
   createWorker<NotificationSendJobPayload>('notification-send', redis, 20, (job) =>
-    processNotificationSend(job.data, { db, logger, resend }),
+    processNotificationSend(job.data, { db, logger, resend }), logger,
   ),
 
-  createWorker<DraftRegenerationJobPayload>('draft-regeneration', redis, 5, (job) =>
-    processDraftRegeneration(job.data, { db, redis, aiClient, logger }),
+  createWorker<DraftRegenerationJobPayload>('draft-regeneration', redis, 1, (job) =>
+    processDraftRegeneration(job.data, { db, redis, aiClient, logger }), logger,
   ),
 
   createWorker<VisualRegenerationJobPayload>('visual-regeneration', redis, 5, (job) =>
@@ -104,17 +108,11 @@ const workers = [
         const buf = Buffer.from(await resp.arrayBuffer());
         return r2.upload(key, buf, 'image/jpeg');
       },
-    }),
+    }), logger,
   ),
 ];
 
 const scheduler = startScheduler({ db, queues, logger });
-
-for (const worker of workers) {
-  worker.on('failed', (job, err) => {
-    logger.error({ jobId: job?.id, err }, 'Job failed');
-  });
-}
 
 logger.info('Worker process started');
 
