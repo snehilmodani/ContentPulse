@@ -41,13 +41,13 @@ export async function processVisualGeneration(
     timestamp: new Date().toISOString(),
   });
 
-  if (env.BYPASS_VISUAL_GENERATION) {
+  if (env.BYPASS_VISUAL_GENERATION === 'true') {
     logger.info({ content_package_id }, 'Visual generation bypassed — inserting sample images');
     await Promise.all(
       visual_types.map(async (visualType) => {
         const dims = getDimensions(visualType);
-        const seed = `${visualType}-${content_package_id.slice(0, 8)}`;
-        const cdnUrl = `https://picsum.photos/seed/${seed}/${dims.width}/${dims.height}`;
+        const seed = `${payload.trend_category}-${visualType}`;
+        const cdnUrl = `https://picsum.photos/seed/${encodeURIComponent(seed)}/${dims.width}/${dims.height}`;
         const key = `visuals/${user_id}/${content_package_id}/${visualType}-bypass.jpg`;
         await db.insert(visuals).values({
           contentPackageId: content_package_id,
