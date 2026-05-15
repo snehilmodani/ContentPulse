@@ -47,7 +47,7 @@ export async function processDraftRegeneration(
       userId: user_id,
       systemBlocks: [{ text: systemPromptText, cacheable: false }],
       messages: [{ role: 'user', content: userPromptText }],
-      maxTokens: 2048,
+      maxTokens: 4096,
     });
 
     const newContent = safeParse(result.text);

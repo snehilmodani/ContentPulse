@@ -84,7 +84,7 @@ Always return valid JSON matching the requested format exactly.`,
         userId: user_id,
         systemBlocks: [systemBlock],
         messages: [{ role: 'user', content: userMessage }],
-        maxTokens: 2048,
+        maxTokens: 4096,
       });
 
       contentBody = safeParseContent(result.text);
