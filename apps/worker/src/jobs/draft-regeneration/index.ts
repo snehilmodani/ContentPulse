@@ -40,20 +40,13 @@ export async function processDraftRegeneration(
   const [brief] = await db.select().from(topicBriefs).where(eq(topicBriefs.id, topic_brief_id)).limit(1);
 
   try {
+    const systemPromptText = `You are a professional content writer. Regenerate the following ${format.replace(/_/g, ' ')} based on the instruction provided. ${FORMAT_INSTRUCTIONS[format as DraftFormat] ?? ''}`;
+    const userPromptText = `Previous content: ${JSON.stringify(draft.contentBody).slice(0, 500)}\n\nInstruction: ${instruction}\n\nBrief context: ${brief?.topicSummary?.slice(0, 200) ?? ''}`;
+
     const result = await aiClient.complete({
       userId: user_id,
-      systemBlocks: [
-        {
-          text: `You are a professional content writer. Regenerate the following ${format.replace(/_/g, ' ')} based on the instruction provided. ${FORMAT_INSTRUCTIONS[format as DraftFormat] ?? ''}`,
-          cacheable: false,
-        },
-      ],
-      messages: [
-        {
-          role: 'user',
-          content: `Previous content: ${JSON.stringify(draft.contentBody).slice(0, 500)}\n\nInstruction: ${instruction}\n\nBrief context: ${brief?.topicSummary?.slice(0, 200) ?? ''}`,
-        },
-      ],
+      systemBlocks: [{ text: systemPromptText, cacheable: false }],
+      messages: [{ role: 'user', content: userPromptText }],
       maxTokens: 2048,
     });
 
@@ -68,7 +61,15 @@ export async function processDraftRegeneration(
         regenerationPrompt: instruction,
         version: draft.version + 1,
         previousVersions: [...prevVersions, { version: draft.version, content: draft.contentBody, regenerated_at: new Date().toISOString() }],
-        generationMeta: { model: aiClient.defaultModel, input_tokens: result.inputTokens, output_tokens: result.outputTokens },
+        generationMeta: {
+          model: aiClient.defaultModel,
+          input_tokens: result.inputTokens,
+          output_tokens: result.outputTokens,
+          cache_read_tokens: result.cacheReadTokens,
+          cache_creation_tokens: result.cacheCreationTokens,
+          system_prompt: systemPromptText,
+          prompt_used: userPromptText,
+        },
         updatedAt: new Date(),
       })
       .where(eq(drafts.id, draft_id));

@@ -9,7 +9,7 @@ import IORedis from 'ioredis';
 import { workerEnv } from '@contentpulse/config';
 import type { ResearchBriefJobPayload } from '@contentpulse/types';
 
-const CONTENT_PACKAGE_ID = process.argv[2];
+const CONTENT_PACKAGE_ID = process.argv[2]!;
 if (!CONTENT_PACKAGE_ID) {
   console.error('Usage: tsx retrigger-research.ts <content_package_id>');
   process.exit(1);

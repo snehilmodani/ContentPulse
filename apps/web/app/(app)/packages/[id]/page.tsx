@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { CheckCircle, XCircle, RefreshCw, Download, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import type { DraftResponse, TopicBriefResponse } from '@contentpulse/types';
+import { DraftPreview } from './draft-preview';
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   draft: 'secondary',
@@ -229,12 +230,22 @@ function DraftCard({ draft }: { draft: DraftResponse }) {
           </div>
         )}
 
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Output</p>
-          <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-56 whitespace-pre-wrap">
-            {JSON.stringify(draft.content_body, null, 2)}
-          </pre>
-        </div>
+        {(() => {
+          const preview = <DraftPreview format={draft.format} contentBody={draft.content_body} />;
+          return (
+            <div className="space-y-2">
+              {preview ?? (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Output</p>
+                  <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-56 whitespace-pre-wrap">
+                    {JSON.stringify(draft.content_body, null, 2)}
+                  </pre>
+                </div>
+              )}
+              <PromptBlock label="Raw JSON" text={JSON.stringify(draft.content_body, null, 2)} />
+            </div>
+          );
+        })()}
 
         {model && (
           <p className="text-xs text-muted-foreground">
