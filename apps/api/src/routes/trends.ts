@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import type { Db } from '@contentpulse/db';
 import { ideas, trendRuns, trends } from '@contentpulse/db';
 import type { IdeaStatus } from '@contentpulse/types';
@@ -115,7 +115,7 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
         .select()
         .from(ideas)
         .where(and(...conditions))
-        .orderBy(ideas.relevanceScore)
+        .orderBy(desc(ideas.relevanceScore))
         .limit(limit)
         .offset(offset);
 

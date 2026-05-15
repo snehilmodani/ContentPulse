@@ -169,7 +169,7 @@ export interface TrendContext {
 
 export interface IdeaListItem {
   id: string;
-  trend: TrendContext;
+  trend: TrendContext | null;
   angle_type: AngleType;
   hook_line: string;
   platform_fit: string[];
@@ -342,6 +342,8 @@ export interface VisualResponse {
   version: number;
   created_at: string;
 }
+
+export type PackageVisualsResponse = { data: VisualResponse[] };
 
 export interface RegenerateVisualBody {
   instruction?: string;
