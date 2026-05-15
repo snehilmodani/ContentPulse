@@ -34,6 +34,9 @@ export async function processVisualGeneration(
 ): Promise<void> {
   const { db, redis, queues, logger, uploadToR2, env } = deps;
   const { user_id, content_package_id, visual_types } = payload;
+  const startMs = Date.now();
+
+  logger.info({ userId: user_id, contentPackageId: content_package_id, visualTypes: visual_types, trendCategory: payload.trend_category, bypassVisual: env.BYPASS_VISUAL_GENERATION }, 'visual-generation started');
 
   await publishToUser(redis, user_id, {
     event: 'pipeline_stage_started',
@@ -42,7 +45,7 @@ export async function processVisualGeneration(
   });
 
   if (env.BYPASS_VISUAL_GENERATION === 'true') {
-    logger.info({ content_package_id }, 'Visual generation bypassed — inserting sample images');
+    logger.info({ userId: user_id, contentPackageId: content_package_id, visualTypes: visual_types }, 'BYPASS_VISUAL_GENERATION=true — inserting picsum placeholder images');
     await Promise.all(
       visual_types.map(async (visualType) => {
         const dims = getDimensions(visualType);
@@ -62,16 +65,20 @@ export async function processVisualGeneration(
           promptUsed: `[bypass] ${payload.trend_category}`,
           sourceUrl: cdnUrl,
         });
+        logger.debug({ userId: user_id, contentPackageId: content_package_id, visualType, cdnUrl, dims }, 'Bypass visual inserted');
       }),
     );
   } else {
     const dalleClient = new DalleClient(env.OPENAI_API_KEY, env.AI_MODEL_VISUAL);
     const unsplashClient = new UnsplashClient(env.UNSPLASH_ACCESS_KEY);
 
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       visual_types.map(async (visualType) => {
         const dims = getDimensions(visualType);
         const useAi = AI_VISUAL_TYPES.includes(visualType);
+        const visualStart = Date.now();
+
+        logger.info({ userId: user_id, contentPackageId: content_package_id, visualType, method: useAi ? 'ai_dalle' : 'web_unsplash', dims }, 'Generating visual');
 
         try {
           let imageUrl: string;
@@ -84,11 +91,13 @@ export async function processVisualGeneration(
             imageUrl = result.url;
             method = 'ai_dalle';
             promptUsed = result.revisedPrompt;
+            logger.debug({ userId: user_id, contentPackageId: content_package_id, visualType, revisedPrompt: result.revisedPrompt }, 'DALL-E image generated');
           } else {
             const result = await unsplashClient.search(payload.trend_category);
             imageUrl = result.url;
             method = 'web_unsplash';
             promptUsed = payload.trend_category;
+            logger.debug({ userId: user_id, contentPackageId: content_package_id, visualType, imageUrl }, 'Unsplash image fetched');
           }
 
           const key = `visuals/${user_id}/${content_package_id}/${visualType}-${Date.now()}.jpg`;
@@ -98,7 +107,9 @@ export async function processVisualGeneration(
             const buffer = await fetchImageBuffer(imageUrl);
             cdnUrl = await uploadToR2(key, imageUrl, user_id);
             void buffer;
-          } catch {
+            logger.debug({ userId: user_id, contentPackageId: content_package_id, visualType, r2Key: key }, 'Visual uploaded to R2');
+          } catch (uploadErr) {
+            logger.warn({ uploadErr, userId: user_id, contentPackageId: content_package_id, visualType }, 'R2 upload failed — falling back to source URL as cdnUrl');
             cdnUrl = imageUrl;
           }
 
@@ -115,8 +126,10 @@ export async function processVisualGeneration(
             promptUsed,
             sourceUrl: imageUrl,
           });
+
+          logger.info({ userId: user_id, contentPackageId: content_package_id, visualType, method, r2Key: key, duration_ms: Date.now() - visualStart }, 'Visual inserted as ready');
         } catch (err) {
-          logger.error({ err, visualType, content_package_id }, 'Visual generation failed');
+          logger.error({ err, userId: user_id, contentPackageId: content_package_id, visualType, duration_ms: Date.now() - visualStart }, 'Visual generation failed — inserting placeholder with generating status');
           await db.insert(visuals).values({
             contentPackageId: content_package_id,
             userId: user_id,
@@ -129,25 +142,32 @@ export async function processVisualGeneration(
         }
       }),
     );
+
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    logger.info({ userId: user_id, contentPackageId: content_package_id, succeeded, failed, total: visual_types.length, duration_ms: Date.now() - startMs }, 'Visual generation batch complete');
   }
 
   await publishToUser(redis, user_id, {
     event: 'pipeline_stage_completed',
-    data: { content_package_id, stage: 'visual-generation', duration_ms: 0 },
+    data: { content_package_id, stage: 'visual-generation', duration_ms: Date.now() - startMs },
     timestamp: new Date().toISOString(),
   });
 
   const stagesDone = await incrStagesDone(redis, content_package_id);
+  logger.info({ userId: user_id, contentPackageId: content_package_id, stagesDone }, 'Redis coordination counter after visual-generation');
 
   if (stagesDone >= 2) {
-    const visualCount = await db
+    logger.info({ userId: user_id, contentPackageId: content_package_id }, 'Both drafting and visual stages done — marking package ready');
+
+    const visualRows = await db
       .select()
       .from(visuals)
       .where(eq(visuals.contentPackageId, content_package_id));
 
     await publishToUser(redis, user_id, {
       event: 'package_ready',
-      data: { content_package_id, draft_count: 0, visual_count: visualCount.length },
+      data: { content_package_id, draft_count: 0, visual_count: visualRows.length },
       timestamp: new Date().toISOString(),
     });
 
@@ -169,6 +189,7 @@ export async function processVisualGeneration(
       .returning();
 
     if (notif) {
+      logger.info({ userId: user_id, contentPackageId: content_package_id, notificationId: notif.id }, 'Enqueueing package_ready notification');
       await queues['notification-send']?.add('notification_send', {
         job_type: 'notification_send',
         user_id,
@@ -177,6 +198,10 @@ export async function processVisualGeneration(
         channels: ['push'],
         template_data: { content_package_id },
       });
+    } else {
+      logger.warn({ userId: user_id, contentPackageId: content_package_id }, 'package_ready notification insert returned no row — push will not be sent');
     }
+  } else {
+    logger.debug({ userId: user_id, contentPackageId: content_package_id, stagesDone }, 'Waiting for content-drafting to complete before marking package ready');
   }
 }

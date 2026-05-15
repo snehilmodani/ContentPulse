@@ -28,8 +28,13 @@ export async function processExportPackage(
   payload: ExportPackageJobPayload,
   deps: Deps,
 ): Promise<void> {
-  const { db, redis, queues, uploadZipToR2, getSignedUrl } = deps;
+  const { db, redis, queues, logger, uploadZipToR2, getSignedUrl } = deps;
   const { user_id, content_package_id, approved_draft_ids, approved_visual_ids } = payload;
+  const startMs = Date.now();
+
+  const draftMode = approved_draft_ids.length > 0 ? 'explicit_ids' : 'all_approved';
+  const visualMode = approved_visual_ids.length > 0 ? 'explicit_ids' : 'all_approved';
+  logger.info({ userId: user_id, contentPackageId: content_package_id, approvedDraftIds: approved_draft_ids, approvedVisualIds: approved_visual_ids, draftMode, visualMode }, 'export-package started');
 
   const draftList = approved_draft_ids.length > 0
     ? await db.select().from(drafts).where(inArray(drafts.id, approved_draft_ids))
@@ -38,6 +43,17 @@ export async function processExportPackage(
   const visualList = approved_visual_ids.length > 0
     ? await db.select().from(visuals).where(inArray(visuals.id, approved_visual_ids))
     : await db.select().from(visuals).where(and(eq(visuals.contentPackageId, content_package_id), eq(visuals.status, 'approved')));
+
+  logger.info({ userId: user_id, contentPackageId: content_package_id, draftCount: draftList.length, visualCount: visualList.length, draftFormats: draftList.map((d) => d.format), visualTypes: visualList.map((v) => v.visualType) }, 'Loaded approved drafts and visuals for export');
+
+  if (draftList.length === 0) {
+    logger.warn({ userId: user_id, contentPackageId: content_package_id, draftMode }, 'No approved drafts found — ZIP will contain no copy files');
+  }
+  if (visualList.length === 0) {
+    logger.warn({ userId: user_id, contentPackageId: content_package_id, visualMode }, 'No approved visuals found — checklist will show no visuals');
+  }
+
+  logger.info({ userId: user_id, contentPackageId: content_package_id }, 'Building ZIP archive');
 
   const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
     const archive = archiver('zip', { zlib: { level: 9 } });
@@ -63,10 +79,16 @@ export async function processExportPackage(
     archive.finalize().catch(reject);
   });
 
+  logger.info({ userId: user_id, contentPackageId: content_package_id, zipSizeBytes: zipBuffer.byteLength, draftFiles: draftList.length, visualsInChecklist: visualList.length }, 'ZIP built — uploading to R2');
+
   const zipKey = `exports/${content_package_id}/package-${Date.now()}.zip`;
   await uploadZipToR2(zipKey, zipBuffer);
+  logger.info({ userId: user_id, contentPackageId: content_package_id, zipKey }, 'ZIP uploaded to R2 — generating signed URL');
+
   const signedUrl = await getSignedUrl(zipKey);
   const expiresAt = new Date(Date.now() + 86400_000);
+
+  logger.info({ userId: user_id, contentPackageId: content_package_id, zipKey, expiresAt: expiresAt.toISOString() }, 'Signed URL generated — updating content package');
 
   await db
     .update(contentPackages)
@@ -99,6 +121,7 @@ export async function processExportPackage(
     .returning();
 
   if (notif) {
+    logger.info({ userId: user_id, contentPackageId: content_package_id, notificationId: notif.id }, 'Enqueueing export_ready notification');
     await queues['notification-send']?.add('notification_send', {
       job_type: 'notification_send',
       user_id,
@@ -107,5 +130,9 @@ export async function processExportPackage(
       channels: ['email'],
       template_data: { export_url: signedUrl },
     });
+  } else {
+    logger.warn({ userId: user_id, contentPackageId: content_package_id }, 'export_ready notification insert returned no row — email will not be sent');
   }
+
+  logger.info({ userId: user_id, contentPackageId: content_package_id, zipKey, zipSizeBytes: zipBuffer.byteLength, duration_ms: Date.now() - startMs }, 'export-package complete');
 }

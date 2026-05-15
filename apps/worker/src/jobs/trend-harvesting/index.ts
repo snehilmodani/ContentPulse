@@ -48,6 +48,9 @@ export async function processTrendHarvesting(
 ): Promise<void> {
   const { db, redis, queues, logger, env } = deps;
   const { user_id, trend_run_id, domain_profile } = payload;
+  const startMs = Date.now();
+
+  logger.info({ userId: user_id, trendRunId: trend_run_id, primaryDomain: domain_profile.primary_domain, region: domain_profile.region }, 'trend-harvesting started');
 
   await db.update(trendRuns).set({ status: 'running', updatedAt: new Date() }).where(eq(trendRuns.id, trend_run_id));
 
@@ -63,6 +66,8 @@ export async function processTrendHarvesting(
   const youtubeClient = new YoutubeClient(env.YOUTUBE_API_KEY);
   const googleClient = new GoogleTrendsClient();
 
+  logger.info({ userId: user_id, trendRunId: trend_run_id, sources: ['x_twitter', 'newsapi', 'reddit', 'youtube', 'google_trends'] }, 'Fetching trends from all sources');
+
   const sourceResults = await Promise.allSettled([
     xClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'x_twitter' as const, results: r })),
     newsClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'newsapi' as const, results: r })),
@@ -74,13 +79,16 @@ export async function processTrendHarvesting(
   const allRaw: Array<{ source: 'x_twitter' | 'google_trends' | 'newsapi' | 'reddit' | 'youtube'; trend: RawTrend }> = [];
   for (const result of sourceResults) {
     if (result.status === 'fulfilled') {
+      logger.info({ userId: user_id, trendRunId: trend_run_id, source: result.value.source, count: result.value.results.length }, 'Source fetch succeeded');
       for (const trend of result.value.results) {
         allRaw.push({ source: result.value.source, trend });
       }
     } else {
-      logger.warn({ error: result.reason }, 'Source fetch failed');
+      logger.warn({ userId: user_id, trendRunId: trend_run_id, error: result.reason }, 'Source fetch failed');
     }
   }
+
+  logger.info({ userId: user_id, trendRunId: trend_run_id, totalRawTrends: allRaw.length }, 'All sources fetched — inserting trends');
 
   const insertedTrendIds: string[] = [];
 
@@ -106,8 +114,13 @@ export async function processTrendHarvesting(
       })
       .returning({ id: trends.id });
 
-    if (inserted) insertedTrendIds.push(inserted.id);
+    if (inserted) {
+      insertedTrendIds.push(inserted.id);
+      logger.debug({ userId: user_id, trendRunId: trend_run_id, trendId: inserted.id, topic: item.trend.topic_name, source: item.source, category: pickCategory(i), relevanceScore, compositeScore }, 'Inserted trend');
+    }
   }
+
+  logger.info({ userId: user_id, trendRunId: trend_run_id, insertedCount: insertedTrendIds.length, skippedCount: allRaw.length - insertedTrendIds.length }, 'Trend insert complete');
 
   const now = new Date();
   await db
@@ -122,9 +135,11 @@ export async function processTrendHarvesting(
 
   await publishToUser(redis, user_id, {
     event: 'pipeline_stage_completed',
-    data: { trend_run_id, stage: 'trend-harvesting', duration_ms: 0 },
+    data: { trend_run_id, stage: 'trend-harvesting', duration_ms: Date.now() - startMs },
     timestamp: new Date().toISOString(),
   });
+
+  logger.info({ userId: user_id, trendRunId: trend_run_id, trendCount: insertedTrendIds.length, duration_ms: Date.now() - startMs }, 'trend-harvesting completed — chaining to idea-generation');
 
   // chain to idea-generation
   await queues['idea-generation']?.add('idea_generation', {

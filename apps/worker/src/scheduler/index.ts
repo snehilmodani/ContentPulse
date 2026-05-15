@@ -20,6 +20,7 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
   const task = cron.schedule('* * * * *', async () => {
     try {
       const today = DateTime.now().toISODate()!;
+      logger.debug({ today }, 'Scheduler tick');
 
       const usersWithProfiles = await db
         .select({
@@ -52,16 +53,19 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
           ),
         );
 
+      logger.debug({ count: usersWithProfiles.length, today }, 'Eligible users without a trend run today');
+
       for (const user of usersWithProfiles) {
         const userNow = DateTime.now().setZone(user.timezone);
         const target9pm = userNow.set({ hour: 21, minute: 0, second: 0, millisecond: 0 });
 
         if (target9pm <= userNow) {
-          // 9 PM already passed today in this timezone — schedule for tomorrow
+          logger.debug({ userId: user.id, timezone: user.timezone, userNow: userNow.toISO() }, 'Skipping user — 9 PM already passed in their timezone');
           continue;
         }
 
         const delayMs = target9pm.toMillis() - userNow.toMillis();
+        const delayMins = Math.round(delayMs / 60_000);
         const jobId = `trend-${user.id}-${today}`;
 
         const [trendRun] = await db
@@ -71,9 +75,11 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
           .returning({ id: trendRuns.id });
 
         if (!trendRun) {
-          // already exists, already scheduled
+          logger.debug({ userId: user.id, jobId }, 'Trend run already exists for today — skipping');
           continue;
         }
+
+        logger.info({ userId: user.id, trendRunId: trendRun.id, timezone: user.timezone, scheduledFor: target9pm.toISO(), delayMs, delayMins }, 'Creating trend run record');
 
         const payload: TrendHarvestingJobPayload = {
           job_type: 'trend_harvesting',
@@ -98,7 +104,7 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
           backoff: { type: 'exponential', delay: 2000 },
         });
 
-        logger.info({ userId: user.id, delayMs, jobId }, 'Scheduled trend-harvesting job');
+        logger.info({ userId: user.id, trendRunId: trendRun.id, jobId, delayMs, delayMins, scheduledFor: target9pm.toISO() }, 'Scheduled trend-harvesting job');
       }
     } catch (err) {
       logger.error({ err }, 'Scheduler tick failed');

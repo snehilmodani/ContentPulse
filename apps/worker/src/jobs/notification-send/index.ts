@@ -37,9 +37,11 @@ export async function processNotificationSend(
   const { db, logger, resend } = deps;
   const { user_id, notification_id, event, channels, template_data } = payload;
 
+  logger.info({ userId: user_id, notificationId: notification_id, event, channels }, 'notification-send started');
+
   const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, user_id)).limit(1);
   if (!user) {
-    logger.warn({ user_id }, 'User not found for notification');
+    logger.warn({ userId: user_id, notificationId: notification_id }, 'User not found for notification — aborting send');
     return;
   }
 
@@ -47,20 +49,28 @@ export async function processNotificationSend(
 
   if (channels.includes('email')) {
     const templateFn = EMAIL_TEMPLATES[event];
+    if (!templateFn) {
+      logger.warn({ userId: user_id, notificationId: notification_id, event }, 'No email template found for event — using fallback');
+    }
     const template = templateFn ? templateFn(template_data) : { subject: 'ContentPulse update', html: '<p>New update.</p>' };
+
+    logger.info({ userId: user_id, notificationId: notification_id, to: user.email, subject: template.subject }, 'Sending email via Resend');
 
     try {
       await resend.send({ to: user.email, subject: template.subject, html: template.html });
+      logger.info({ userId: user_id, notificationId: notification_id, to: user.email }, 'Email sent successfully');
       await db
         .update(notifications)
         .set({ sentAt: now, updatedAt: now })
         .where(eq(notifications.id, notification_id));
     } catch (err) {
-      logger.error({ err, notification_id }, 'Email send failed');
+      logger.error({ err, userId: user_id, notificationId: notification_id, to: user.email }, 'Email send failed');
       await db
         .update(notifications)
         .set({ failedAt: now, errorMessage: String(err), updatedAt: now })
         .where(eq(notifications.id, notification_id));
     }
+  } else {
+    logger.debug({ userId: user_id, notificationId: notification_id, channels }, 'No email channel requested — nothing to send');
   }
 }

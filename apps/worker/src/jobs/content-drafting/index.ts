@@ -42,6 +42,9 @@ export async function processContentDrafting(
   if (payload.job_type !== 'content_drafting') return;
   const { db, redis, aiClient, queues, logger } = deps;
   const { user_id, content_package_id, topic_brief_id, idea_id, selected_formats, domain_profile } = payload;
+  const startMs = Date.now();
+
+  logger.info({ userId: user_id, contentPackageId: content_package_id, topicBriefId: topic_brief_id, ideaId: idea_id, formats: selected_formats }, 'content-drafting started');
 
   await publishToUser(redis, user_id, {
     event: 'pipeline_stage_started',
@@ -53,7 +56,12 @@ export async function processContentDrafting(
   const [idea] = await db.select().from(ideas).where(eq(ideas.id, idea_id)).limit(1);
   const [profile] = await db.select().from(domainProfiles).where(eq(domainProfiles.userId, user_id)).limit(1);
 
-  if (!brief || !idea) throw new Error('Missing brief or idea');
+  if (!brief || !idea) {
+    logger.error({ userId: user_id, contentPackageId: content_package_id, topicBriefId: topic_brief_id, ideaId: idea_id, hasBrief: !!brief, hasIdea: !!idea }, 'Missing brief or idea — cannot draft');
+    throw new Error('Missing brief or idea');
+  }
+
+  logger.debug({ userId: user_id, contentPackageId: content_package_id, hookLine: idea.hookLine, hasProfile: !!profile }, 'Brief and idea loaded');
 
   const domainContext = profile?.creatorPersona ?? domain_profile.creator_persona;
   const toneContext = (profile?.toneOfVoice ?? domain_profile.tone_of_voice).join(', ');
@@ -68,6 +76,9 @@ Always return valid JSON matching the requested format exactly.`,
     cacheable: true,
   };
 
+  let draftsInserted = 0;
+  let draftsFailed = 0;
+
   for (let fi = 0; fi < selected_formats.length; fi++) {
     const format = selected_formats[fi]!;
     // Space out calls to avoid hitting free-tier rate limits
@@ -76,8 +87,11 @@ Always return valid JSON matching the requested format exactly.`,
 
     const userMessage = `Write a ${format.replace(/_/g, ' ')} about "${idea.hookLine}".\nKey facts: ${JSON.stringify(brief.keyFacts).slice(0, 500)}\n${formatInstruction}`;
 
+    logger.info({ userId: user_id, contentPackageId: content_package_id, format, formatIndex: fi + 1, totalFormats: selected_formats.length }, 'Calling AI for draft');
+
     let contentBody: Record<string, unknown>;
     let generationMeta: Record<string, unknown> = {};
+    const formatStart = Date.now();
 
     try {
       const result = await aiClient.complete({
@@ -87,6 +101,7 @@ Always return valid JSON matching the requested format exactly.`,
         maxTokens: 4096,
       });
 
+      const isRawFallback = 'raw_text' in safeParseContent(result.text);
       contentBody = safeParseContent(result.text);
       generationMeta = {
         model: aiClient.defaultModel,
@@ -97,8 +112,15 @@ Always return valid JSON matching the requested format exactly.`,
         system_prompt: systemBlock.text,
         prompt_used: userMessage,
       };
+
+      if (isRawFallback) {
+        logger.warn({ userId: user_id, contentPackageId: content_package_id, format, responseSnippet: result.text.slice(0, 200) }, 'AI response was not valid JSON — stored as raw_text');
+      }
+
+      logger.info({ userId: user_id, contentPackageId: content_package_id, format, inputTokens: result.inputTokens, outputTokens: result.outputTokens, cacheReadTokens: result.cacheReadTokens, rawFallback: isRawFallback, duration_ms: Date.now() - formatStart }, 'AI draft received');
     } catch (err) {
-      logger.error({ err, format, content_package_id }, 'Draft generation failed');
+      draftsFailed++;
+      logger.error({ err, userId: user_id, contentPackageId: content_package_id, format, duration_ms: Date.now() - formatStart }, 'Draft generation failed');
       contentBody = { error: String(err) };
       generationMeta = { failed: true };
     }
@@ -123,6 +145,7 @@ Always return valid JSON matching the requested format exactly.`,
           updatedAt: new Date(),
         })
         .where(and(eq(drafts.contentPackageId, content_package_id), eq(drafts.format, format)));
+      logger.debug({ userId: user_id, contentPackageId: content_package_id, format, newVersion: existing.version + 1 }, 'Existing draft updated (regeneration)');
     } else {
       await db.insert(drafts).values({
         contentPackageId: content_package_id,
@@ -132,18 +155,25 @@ Always return valid JSON matching the requested format exactly.`,
         contentBody,
         generationMeta,
       });
+      draftsInserted++;
+      logger.debug({ userId: user_id, contentPackageId: content_package_id, format }, 'New draft inserted');
     }
   }
 
+  logger.info({ userId: user_id, contentPackageId: content_package_id, draftsInserted, draftsFailed, totalFormats: selected_formats.length, duration_ms: Date.now() - startMs }, 'content-drafting complete');
+
   await publishToUser(redis, user_id, {
     event: 'pipeline_stage_completed',
-    data: { content_package_id, stage: 'content-drafting', duration_ms: 0 },
+    data: { content_package_id, stage: 'content-drafting', duration_ms: Date.now() - startMs },
     timestamp: new Date().toISOString(),
   });
 
   const stagesDone = await incrStagesDone(redis, content_package_id);
+  logger.info({ userId: user_id, contentPackageId: content_package_id, stagesDone }, 'Redis coordination counter after content-drafting');
 
   if (stagesDone >= 2) {
+    logger.info({ userId: user_id, contentPackageId: content_package_id }, 'Both drafting and visual stages done — marking package ready');
+
     const draftRows = await db.select().from(drafts).where(eq(drafts.contentPackageId, content_package_id));
 
     await publishToUser(redis, user_id, {
@@ -170,6 +200,7 @@ Always return valid JSON matching the requested format exactly.`,
       .returning();
 
     if (notif) {
+      logger.info({ userId: user_id, contentPackageId: content_package_id, notificationId: notif.id }, 'Enqueueing package_ready notification');
       await queues['notification-send']?.add('notification_send', {
         job_type: 'notification_send',
         user_id,
@@ -178,6 +209,10 @@ Always return valid JSON matching the requested format exactly.`,
         channels: ['email'],
         template_data: { content_package_id },
       });
+    } else {
+      logger.warn({ userId: user_id, contentPackageId: content_package_id }, 'package_ready notification insert returned no row — email will not be sent');
     }
+  } else {
+    logger.debug({ userId: user_id, contentPackageId: content_package_id, stagesDone }, 'Waiting for visual-generation to complete before marking package ready');
   }
 }

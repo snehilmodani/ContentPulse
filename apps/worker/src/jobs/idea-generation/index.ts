@@ -54,6 +54,9 @@ export async function processIdeaGeneration(
 ): Promise<void> {
   const { db, redis, aiClient, queues, logger } = deps;
   const { user_id, trend_run_id } = payload;
+  const startMs = Date.now();
+
+  logger.info({ userId: user_id, trendRunId: trend_run_id }, 'idea-generation started');
 
   await publishToUser(redis, user_id, {
     event: 'pipeline_stage_started',
@@ -69,7 +72,19 @@ export async function processIdeaGeneration(
     .orderBy(desc(trends.compositeScore))
     .limit(10);
 
+  logger.info({ userId: user_id, trendRunId: trend_run_id, trendCount: topTrends.length }, 'Fetched top trends for idea generation');
+
+  if (topTrends.length === 0) {
+    logger.warn({ userId: user_id, trendRunId: trend_run_id }, 'No trends found for this run — idea generation will produce no ideas');
+  }
+
+  let totalIdeasInserted = 0;
+  let stubCount = 0;
+
   for (const trend of topTrends) {
+    const trendStart = Date.now();
+    logger.info({ userId: user_id, trendRunId: trend_run_id, trendId: trend.id, topic: trend.topicName, category: trend.category }, 'Calling AI for idea generation');
+
     try {
       const result = await aiClient.complete({
         userId: user_id,
@@ -88,22 +103,36 @@ export async function processIdeaGeneration(
         maxTokens: 1024,
       });
 
+      logger.debug({ userId: user_id, trendId: trend.id, responseLength: result.text.length, duration_ms: Date.now() - trendStart }, 'AI response received');
+
       const parsedIdeas = parseIdeasFromText(result.text, trend.id, user_id, trend_run_id, aiClient.defaultModel);
+      const isStub = parsedIdeas.some((idea) => idea.generationMeta.stub);
+
+      if (isStub) {
+        stubCount++;
+        logger.warn({ userId: user_id, trendRunId: trend_run_id, trendId: trend.id, rawResponseSnippet: result.text.slice(0, 200) }, 'AI response was not valid JSON — using stub ideas');
+      }
+
       await db.insert(ideas).values(parsedIdeas);
+      totalIdeasInserted += parsedIdeas.length;
+
+      logger.info({ userId: user_id, trendRunId: trend_run_id, trendId: trend.id, ideasInserted: parsedIdeas.length, stub: isStub, duration_ms: Date.now() - trendStart }, 'Ideas inserted for trend');
     } catch (err) {
-      logger.error({ err, trendId: trend.id }, 'Idea generation failed for trend');
+      logger.error({ err, userId: user_id, trendRunId: trend_run_id, trendId: trend.id, topic: trend.topicName, duration_ms: Date.now() - trendStart }, 'Idea generation failed for trend');
     }
   }
 
+  logger.info({ userId: user_id, trendRunId: trend_run_id, totalIdeasInserted, stubCount, trendsProcessed: topTrends.length, duration_ms: Date.now() - startMs }, 'idea-generation complete');
+
   await publishToUser(redis, user_id, {
     event: 'pipeline_stage_completed',
-    data: { trend_run_id, stage: 'idea-generation', duration_ms: 0 },
+    data: { trend_run_id, stage: 'idea-generation', duration_ms: Date.now() - startMs },
     timestamp: new Date().toISOString(),
   });
 
   await publishToUser(redis, user_id, {
     event: 'ideas_ready',
-    data: { trend_run_id, idea_count: topTrends.length * 5 },
+    data: { trend_run_id, idea_count: totalIdeasInserted },
     timestamp: new Date().toISOString(),
   });
 
@@ -121,6 +150,7 @@ export async function processIdeaGeneration(
     .returning();
 
   if (notif) {
+    logger.info({ userId: user_id, trendRunId: trend_run_id, notificationId: notif.id }, 'Notification record created — enqueueing notification-send');
     await queues['notification-send']?.add('notification_send', {
       job_type: 'notification_send',
       user_id,
@@ -129,5 +159,7 @@ export async function processIdeaGeneration(
       channels: ['email'],
       template_data: { trend_run_id },
     });
+  } else {
+    logger.warn({ userId: user_id, trendRunId: trend_run_id }, 'Notification insert returned no row — email will not be sent');
   }
 }
