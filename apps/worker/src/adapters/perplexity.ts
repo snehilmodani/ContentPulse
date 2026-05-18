@@ -32,7 +32,7 @@ export class PerplexityClient {
     return pRetry(
       async () => {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 120_000);
+        const timeout = setTimeout(() => controller.abort(), 300_000);
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           signal: controller.signal,

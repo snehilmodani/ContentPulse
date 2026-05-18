@@ -8,7 +8,7 @@ export { AiRateLimitError, AiTimeoutError, TokenBudgetExceededError };
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const FALLBACK_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 const DEFAULT_TOKEN_CAP = 1_000_000;
-const REQUEST_TIMEOUT_MS = 90_000; // 90 s — free-tier models can be slow but shouldn't hang forever
+const REQUEST_TIMEOUT_MS = 120_000; // 2 min — free-tier models can be slow but shouldn't hang forever
 
 export interface SystemBlock {
   text: string;

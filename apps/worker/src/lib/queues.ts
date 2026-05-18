@@ -46,7 +46,7 @@ export function createWorker<T extends JobPayload>(
     name,
     async (job) => {
       const start = Date.now();
-      logger.info({ queue: name, jobId: job.id }, 'job started');
+      logger.info({ queue: name, jobId: job.id, data: job.data }, 'job picked up');
       await processor(job as unknown as { id?: string; data: T });
       logger.info({ queue: name, jobId: job.id, duration_ms: Date.now() - start }, 'job completed');
     },

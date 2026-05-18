@@ -61,19 +61,19 @@ export async function processTrendHarvesting(
   });
 
   const xClient = new XTrendsClient(env.X_API_BEARER_TOKEN);
-  const newsClient = new NewsApiClient(env.NEWSAPI_KEY);
-  const redditClient = new RedditClient(env.REDDIT_CLIENT_ID, env.REDDIT_CLIENT_SECRET);
-  const youtubeClient = new YoutubeClient(env.YOUTUBE_API_KEY);
-  const googleClient = new GoogleTrendsClient();
+  // const newsClient = new NewsApiClient(env.NEWSAPI_KEY);
+  // const redditClient = new RedditClient(env.REDDIT_CLIENT_ID, env.REDDIT_CLIENT_SECRET);
+  // const youtubeClient = new YoutubeClient(env.YOUTUBE_API_KEY);
+  // const googleClient = new GoogleTrendsClient();
 
   logger.info({ userId: user_id, trendRunId: trend_run_id, sources: ['x_twitter', 'newsapi', 'reddit', 'youtube', 'google_trends'] }, 'Fetching trends from all sources');
 
   const sourceResults = await Promise.allSettled([
     xClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'x_twitter' as const, results: r })),
-    newsClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'newsapi' as const, results: r })),
-    redditClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'reddit' as const, results: r })),
-    youtubeClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'youtube' as const, results: r })),
-    googleClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'google_trends' as const, results: r })),
+    // newsClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'newsapi' as const, results: r })),
+    // redditClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'reddit' as const, results: r })),
+    // youtubeClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'youtube' as const, results: r })),
+    // googleClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'google_trends' as const, results: r })),
   ]);
 
   const allRaw: Array<{ source: 'x_twitter' | 'google_trends' | 'newsapi' | 'reddit' | 'youtube'; trend: RawTrend }> = [];
