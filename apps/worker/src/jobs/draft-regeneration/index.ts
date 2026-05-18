@@ -23,7 +23,7 @@ const FORMAT_INSTRUCTIONS: Record<DraftFormat, string> = {
   blog_post: 'Return JSON: { seo_title, meta_description, body (markdown), estimated_read_time_minutes, internal_link_suggestions }',
 };
 
-function safeParse(text: string): Record<string, unknown> {
+export function safeParse(text: string): Record<string, unknown> {
   try { return JSON.parse(text) as Record<string, unknown>; } catch { return { raw_text: text }; }
 }
 

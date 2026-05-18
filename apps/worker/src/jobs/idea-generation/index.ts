@@ -19,7 +19,7 @@ interface Deps {
 
 const ANGLE_TYPES = ['news', 'innovation', 'contrarian', 'comedic', 'tangential_insight'] as const;
 
-function parseIdeasFromText(text: string, trendId: string, userId: string, trendRunId: string, model: string) {
+export function parseIdeasFromText(text: string, trendId: string, userId: string, trendRunId: string, model: string) {
   try {
     const parsed = JSON.parse(text) as Array<{ angle_type: string; hook_line: string; core_argument: string; platform_fit: string[] }>;
     return parsed.slice(0, 5).map((idea, i) => ({
