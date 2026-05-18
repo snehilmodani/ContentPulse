@@ -7,6 +7,7 @@ import type {
   DeferIdeaResponse,
   Paginated,
   RejectIdeaResponse,
+  TrendRunDetail,
   TrendRunListItem,
 } from '@contentpulse/types';
 
@@ -14,6 +15,14 @@ export function useTrendRuns(page = 1) {
   return useQuery<Paginated<TrendRunListItem>>({
     queryKey: ['trend-runs', page],
     queryFn: () => apiFetch<Paginated<TrendRunListItem>>(`/trend-runs?page=${page}&limit=20`),
+  });
+}
+
+export function useTrendRun(runId: string) {
+  return useQuery<TrendRunDetail>({
+    queryKey: ['trend-run', runId],
+    queryFn: () => apiFetch<TrendRunDetail>(`/trend-runs/${runId}`),
+    enabled: !!runId,
   });
 }
 

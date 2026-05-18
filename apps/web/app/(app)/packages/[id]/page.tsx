@@ -8,6 +8,7 @@ import {
   usePackage,
   usePackageBrief,
   usePackageDrafts,
+  usePackageVisuals,
   useApproveDraft,
   useRejectDraft,
   useRegenerateDraft,
@@ -19,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { CheckCircle, XCircle, RefreshCw, Download, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
-import type { DraftResponse, TopicBriefResponse } from '@contentpulse/types';
+import type { DraftFormat, DraftResponse, TopicBriefResponse, VisualResponse, VisualType } from '@contentpulse/types';
 import { DraftPreview } from './draft-preview';
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -28,6 +29,13 @@ const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'ou
   rejected: 'destructive',
   generating: 'outline',
   regenerating: 'outline',
+};
+
+const FORMAT_TO_VISUAL_TYPE: Partial<Record<DraftFormat, VisualType>> = {
+  instagram_post: 'square_post',
+  blog_post: 'thumbnail',
+  linkedin_article: 'thumbnail',
+  reel_script: 'story_cover',
 };
 
 // ─── Pipeline progress ──────────────────────────────────────────────────────
@@ -188,7 +196,7 @@ function ResearchBriefCard({ brief }: { brief: TopicBriefResponse }) {
 
 // ─── Draft card ─────────────────────────────────────────────────────────────
 
-function DraftCard({ draft }: { draft: DraftResponse }) {
+function DraftCard({ draft, visual }: { draft: DraftResponse; visual?: VisualResponse }) {
   const [regenInstruction, setRegenInstruction] = useState('');
   const [showRegen, setShowRegen] = useState(false);
   const approveDraft = useApproveDraft();
@@ -239,7 +247,7 @@ function DraftCard({ draft }: { draft: DraftResponse }) {
         )}
 
         {(() => {
-          const preview = <DraftPreview format={draft.format} contentBody={draft.content_body} />;
+          const preview = <DraftPreview format={draft.format} contentBody={draft.content_body} {...(visual ? { visual } : {})} />;
           return (
             <div className="space-y-2">
               {preview ?? (
@@ -310,12 +318,12 @@ export default function PackagePage() {
   const { data: pkg, isLoading: pkgLoading } = usePackage(packageId);
   const isDrafting = pkg?.status === 'drafting';
   const { data: draftsData, isLoading: draftsLoading } = usePackageDrafts(packageId, isDrafting);
+  const { data: visualsData } = usePackageVisuals(packageId, isDrafting);
   const pkgStatus = pkg?.status ?? 'pending';
   const { data: brief } = usePackageBrief(packageId, BRIEF_VISIBLE.has(pkgStatus));
   const exportPackage = useExportPackage();
 
-  // When the package leaves an in-flight state, force a final refresh of drafts + brief
-  // so the UI reflects the completed generation without waiting for a stale poll cycle.
+  // When the package leaves an in-flight state, force a final refresh of drafts + brief + visuals.
   const prevStatusRef = useRef<string | undefined>();
   useEffect(() => {
     if (!pkg?.status) return;
@@ -324,9 +332,11 @@ export default function PackagePage() {
     if (prev && IN_FLIGHT.has(prev) && !IN_FLIGHT.has(pkg.status)) {
       void queryClient.invalidateQueries({ queryKey: ['packages', packageId, 'drafts'] });
       void queryClient.invalidateQueries({ queryKey: ['packages', packageId, 'brief'] });
+      void queryClient.invalidateQueries({ queryKey: ['packages', packageId, 'visuals'] });
     }
   }, [pkg?.status, packageId, queryClient]);
   const drafts = (draftsData?.data ?? []).slice().sort((a, b) => a.format.localeCompare(b.format));
+  const visualByType = new Map((visualsData?.data ?? []).map((v) => [v.visual_type, v]));
   const showPipeline = IN_FLIGHT.has(pkgStatus);
   const showBrief = BRIEF_VISIBLE.has(pkgStatus) && !!brief;
 
@@ -388,9 +398,11 @@ export default function PackagePage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {drafts.map((draft) => (
-              <DraftCard key={draft.id} draft={draft} />
-            ))}
+            {drafts.map((draft) => {
+              const visualType = FORMAT_TO_VISUAL_TYPE[draft.format as DraftFormat];
+              const visual = visualType ? visualByType.get(visualType) : undefined;
+              return <DraftCard key={draft.id} draft={draft} {...(visual ? { visual } : {})} />;
+            })}
           </div>
         )}
       </div>

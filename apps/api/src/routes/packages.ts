@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { and, count, desc, eq } from 'drizzle-orm';
 import type { Db } from '@contentpulse/db';
-import { contentPackages, drafts, ideas, topicBriefs, visuals } from '@contentpulse/db';
-import type { ExportPackageJobPayload } from '@contentpulse/types';
+import { contentPackages, drafts, ideas, topicBriefs, trends, visuals } from '@contentpulse/db';
+import type { ExportPackageJobPayload, ResearchBriefJobPayload } from '@contentpulse/types';
 import { notFound } from '../lib/errors';
 
 export async function packageRoutes(fastify: FastifyInstance & { db: Db }) {
@@ -156,6 +156,116 @@ export async function packageRoutes(fastify: FastifyInstance & { db: Db }) {
           created_at: d.createdAt.toISOString(),
           updated_at: d.updatedAt.toISOString(),
         })),
+      });
+    },
+  );
+
+  fastify.get<{ Params: { packageId: string } }>(
+    '/content-packages/:packageId/visuals',
+    { preHandler: fastify.authenticate },
+    async (request, reply) => {
+      const [pkg] = await fastify.db
+        .select({ id: contentPackages.id })
+        .from(contentPackages)
+        .where(
+          and(
+            eq(contentPackages.id, request.params.packageId),
+            eq(contentPackages.userId, request.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!pkg) throw notFound('ContentPackage', request.params.packageId);
+
+      const visualList = await fastify.db
+        .select()
+        .from(visuals)
+        .where(eq(visuals.contentPackageId, pkg.id));
+
+      return reply.send({
+        data: visualList.map((v) => ({
+          id: v.id,
+          content_package_id: v.contentPackageId,
+          visual_type: v.visualType,
+          width_px: v.widthPx,
+          height_px: v.heightPx,
+          generation_method: v.generationMethod,
+          status: v.status,
+          r2_key: v.r2Key,
+          cdn_url: v.cdnUrl,
+          prompt_used: v.promptUsed,
+          source_url: v.sourceUrl,
+          brand_kit_applied: v.brandKitApplied,
+          version: v.version,
+          created_at: v.createdAt.toISOString(),
+        })),
+      });
+    },
+  );
+
+  fastify.post<{ Params: { packageId: string } }>(
+    '/content-packages/:packageId/research',
+    { preHandler: fastify.authenticate },
+    async (request, reply) => {
+      const [pkg] = await fastify.db
+        .select()
+        .from(contentPackages)
+        .where(
+          and(
+            eq(contentPackages.id, request.params.packageId),
+            eq(contentPackages.userId, request.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!pkg) throw notFound('ContentPackage', request.params.packageId);
+
+      const [idea] = await fastify.db
+        .select()
+        .from(ideas)
+        .where(eq(ideas.id, pkg.ideaId))
+        .limit(1);
+
+      if (!idea) throw notFound('Idea', pkg.ideaId);
+
+      const [trend] = await fastify.db
+        .select()
+        .from(trends)
+        .where(eq(trends.id, idea.trendId))
+        .limit(1);
+
+      // Clear existing brief so the unique constraint doesn't block re-research
+      await fastify.db
+        .delete(topicBriefs)
+        .where(eq(topicBriefs.contentPackageId, pkg.id));
+
+      await fastify.db
+        .update(contentPackages)
+        .set({ status: 'pending', updatedAt: new Date() })
+        .where(eq(contentPackages.id, pkg.id));
+
+      const jobPayload: ResearchBriefJobPayload = {
+        job_type: 'research_brief',
+        user_id: request.user.id,
+        content_package_id: pkg.id,
+        idea_id: idea.id,
+        idea: {
+          hook_line: idea.hookLine,
+          core_argument: idea.coreArgument,
+          angle_type: idea.angleType,
+        },
+        domain_profile: {
+          primary_domain: trend?.topicSlug ?? idea.hookLine,
+          region: 'IN-MH',
+        },
+      };
+
+      const job = await fastify.queues['research-brief'].add('research_brief', jobPayload);
+
+      return reply.status(202).send({
+        package_id: pkg.id,
+        status: 'pending',
+        job_id: job.id,
       });
     },
   );

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Inbox, Package, User, Palette, Settings, LogOut, Wifi, WifiOff } from 'lucide-react';
+import { LayoutDashboard, Inbox, Package, User, Palette, Settings, LogOut, Wifi, WifiOff, Activity } from 'lucide-react';
 import { useAuthStore } from '@/lib/stores/auth';
 import { useWsStore } from '@/lib/stores/ws';
 import { useMe } from '@/lib/hooks/use-auth';
@@ -14,6 +14,7 @@ import { apiFetch } from '@/lib/api-client';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/queue', label: 'Review Queue', icon: Inbox },
+  { href: '/trend-runs', label: 'Trend Runs', icon: Activity },
   { href: '/packages', label: 'Packages', icon: Package },
   { href: '/profile', label: 'Domain Profile', icon: User },
   { href: '/brand-kit', label: 'Brand Kit', icon: Palette },

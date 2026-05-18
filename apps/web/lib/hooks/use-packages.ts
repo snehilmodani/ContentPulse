@@ -7,6 +7,7 @@ import type {
   ContentPackageResponse,
   DraftResponse,
   ExportResponse,
+  PackageVisualsResponse,
   RegenerateDraftBody,
   RegenerateDraftResponse,
   RegenerateVisualBody,
@@ -30,7 +31,7 @@ export function usePackage(packageId: string) {
     refetchInterval: (data) => {
       if (!data) return false;
       const status = data.state.data?.status;
-      return status === 'researching' || status === 'drafting' ? 5000 : false;
+      return status === 'pending' || status === 'researching' || status === 'drafting' ? 5000 : false;
     },
   });
 }
@@ -52,6 +53,21 @@ export function usePackageDrafts(packageId: string, pollWhileDrafting = false) {
       if (pollWhileDrafting) return 3000;
       if (query.state.data?.data?.some((d) => d.status === 'regenerating')) return 3000;
       return false;
+    },
+  });
+}
+
+export function usePackageVisuals(packageId: string, pollWhileDrafting = false) {
+  return useQuery<PackageVisualsResponse>({
+    queryKey: ['packages', packageId, 'visuals'],
+    queryFn: () => apiFetch<PackageVisualsResponse>(`/content-packages/${packageId}/visuals`),
+    enabled: !!packageId,
+    refetchInterval: (query) => {
+      if (pollWhileDrafting) return 3000;
+      const stillWorking = query.state.data?.data?.some(
+        (v) => v.status === 'generating' || v.status === 'regenerating',
+      );
+      return stillWorking ? 3000 : false;
     },
   });
 }

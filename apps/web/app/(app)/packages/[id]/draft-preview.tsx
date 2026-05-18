@@ -17,8 +17,14 @@ import {
   Film,
   Volume2,
 } from 'lucide-react';
-import type { DraftFormat } from '@contentpulse/types';
+import type { DraftFormat, VisualResponse } from '@contentpulse/types';
 import { useMe } from '@/lib/hooks/use-auth';
+
+function readyVisualUrl(v?: VisualResponse): string | null {
+  if (!v?.cdn_url) return null;
+  if (v.status !== 'ready' && v.status !== 'approved') return null;
+  return v.cdn_url;
+}
 
 // ── Raw-text fallback ─────────────────────────────────────────────────────────
 // Shown when the model returned reasoning text instead of structured JSON.
@@ -231,11 +237,12 @@ type LinkedInArticleBody = {
   estimated_read_time_minutes?: number;
 };
 
-function LinkedInArticlePreview({ body, name, handle }: { body: LinkedInArticleBody; name: string; handle: string }) {
+function LinkedInArticlePreview({ body, name, handle, visual }: { body: LinkedInArticleBody; name: string; handle: string; visual?: VisualResponse }) {
   const [expanded, setExpanded] = useState(false);
   const bodyText = body.body ?? '';
   const shouldTruncate = bodyText.length > 400;
   const readTime = body.estimated_read_time_minutes;
+  const imageUrl = readyVisualUrl(visual);
 
   return (
     <div className="rounded-xl border border-border bg-background overflow-hidden">
@@ -243,6 +250,7 @@ function LinkedInArticlePreview({ body, name, handle }: { body: LinkedInArticleB
         label="LinkedIn Article preview"
         right={readTime != null ? `${readTime} min read` : undefined}
       />
+      {imageUrl && <img src={imageUrl} alt="" className="w-full aspect-[16/9] object-cover" />}
       <div className="p-4 space-y-3">
         <LinkedInAuthorRow name={name} handle={handle} />
         {body.title && <h3 className="font-bold text-base leading-snug">{body.title}</h3>}
@@ -383,7 +391,8 @@ type InstagramPostBody = {
   image_brief?: string;
 };
 
-function InstagramPostPreview({ body, handle }: { body: InstagramPostBody; handle: string }) {
+function InstagramPostPreview({ body, handle, visual }: { body: InstagramPostBody; handle: string; visual?: VisualResponse }) {
+  const imageUrl = readyVisualUrl(visual);
   const hashtags = (body.hashtags ?? []).map((h) => (h.startsWith('#') ? h : `#${h}`));
 
   return (
@@ -406,16 +415,20 @@ function InstagramPostPreview({ body, handle }: { body: InstagramPostBody; handl
         <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
       </div>
 
-      {/* Image placeholder */}
-      <div className="aspect-square bg-muted flex flex-col items-center justify-center gap-3 p-6 relative">
-        <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
-        {body.image_brief && (
-          <p className="text-xs text-center text-muted-foreground/70 leading-relaxed max-w-[220px]">
-            {body.image_brief}
-          </p>
-        )}
-        <span className="absolute bottom-2 right-2 text-[10px] text-muted-foreground/40 italic">visual brief</span>
-      </div>
+      {/* Image */}
+      {imageUrl ? (
+        <img src={imageUrl} alt="" className="aspect-square w-full object-cover" />
+      ) : (
+        <div className="aspect-square bg-muted flex flex-col items-center justify-center gap-3 p-6 relative">
+          <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
+          {body.image_brief && (
+            <p className="text-xs text-center text-muted-foreground/70 leading-relaxed max-w-[220px]">
+              {body.image_brief}
+            </p>
+          )}
+          <span className="absolute bottom-2 right-2 text-[10px] text-muted-foreground/40 italic">visual brief</span>
+        </div>
+      )}
 
       {/* Engagement icons */}
       <div className="px-3 pt-2.5 pb-1 flex items-center gap-3">
@@ -452,9 +465,10 @@ type ReelScriptBody = {
   word_count?: number;
 };
 
-function ReelScriptPreview({ body }: { body: ReelScriptBody }) {
+function ReelScriptPreview({ body, visual }: { body: ReelScriptBody; visual?: VisualResponse }) {
   const [idx, setIdx] = useState(0);
   const [scriptOpen, setScriptOpen] = useState(false);
+  const imageUrl = readyVisualUrl(visual);
 
   const shots = body.storyboard ?? [];
   const total = shots.length;
@@ -500,9 +514,17 @@ function ReelScriptPreview({ body }: { body: ReelScriptBody }) {
 
               {/* Phone frame */}
               <div
-                className="relative rounded-2xl border-2 border-border bg-muted overflow-hidden flex flex-col"
-                style={{ width: 180, aspectRatio: '9/16' }}
+                className="relative rounded-2xl border-2 border-border overflow-hidden flex flex-col"
+                style={{
+                  width: 180,
+                  aspectRatio: '9/16',
+                  backgroundImage: imageUrl ? `url(${imageUrl})` : undefined,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: imageUrl ? undefined : 'hsl(var(--muted))',
+                }}
               >
+                {imageUrl && <div className="absolute inset-0 bg-black/30" />}
                 {current && (
                   <>
                     {/* Shot chip */}
@@ -593,11 +615,12 @@ type BlogPostBody = {
   internal_link_suggestions?: string[];
 };
 
-function BlogPostPreview({ body, name }: { body: BlogPostBody; name: string }) {
+function BlogPostPreview({ body, name, visual }: { body: BlogPostBody; name: string; visual?: VisualResponse }) {
   const [expanded, setExpanded] = useState(false);
   const bodyText = body.body ?? '';
   const shouldTruncate = bodyText.length > 500;
   const initial = name.charAt(0) || 'Y';
+  const imageUrl = readyVisualUrl(visual);
 
   return (
     <div className="rounded-xl border border-border bg-background overflow-hidden">
@@ -609,6 +632,7 @@ function BlogPostPreview({ body, name }: { body: BlogPostBody; name: string }) {
         )}
       </div>
 
+      {imageUrl && <img src={imageUrl} alt="" className="w-full aspect-[16/9] object-cover" />}
       <div className="p-4 space-y-3">
         {/* Author row */}
         <div className="flex items-center gap-2.5">
@@ -672,9 +696,11 @@ function BlogPostPreview({ body, name }: { body: BlogPostBody; name: string }) {
 export function DraftPreview({
   format,
   contentBody,
+  visual,
 }: {
   format: DraftFormat;
   contentBody: Record<string, unknown>;
+  visual?: VisualResponse;
 }): JSX.Element | null {
   const { data: me } = useMe();
   const name = me?.display_name ?? 'You';
@@ -694,20 +720,21 @@ export function DraftPreview({
   if (format === 'x_thread') {
     return <XThreadPreview body={body as XThreadBody} name={name} handle={handle} />;
   }
+  const visualProp = visual ? { visual } : {};
   if (format === 'linkedin_article') {
-    return <LinkedInArticlePreview body={body as LinkedInArticleBody} name={name} handle={handle} />;
+    return <LinkedInArticlePreview body={body as LinkedInArticleBody} name={name} handle={handle} {...visualProp} />;
   }
   if (format === 'linkedin_carousel') {
     return <LinkedInCarouselPreview body={body as LinkedInCarouselBody} name={name} handle={handle} />;
   }
   if (format === 'instagram_post') {
-    return <InstagramPostPreview body={body as InstagramPostBody} handle={handle} />;
+    return <InstagramPostPreview body={body as InstagramPostBody} handle={handle} {...visualProp} />;
   }
   if (format === 'reel_script') {
-    return <ReelScriptPreview body={body as ReelScriptBody} />;
+    return <ReelScriptPreview body={body as ReelScriptBody} {...visualProp} />;
   }
   if (format === 'blog_post') {
-    return <BlogPostPreview body={body as BlogPostBody} name={name} />;
+    return <BlogPostPreview body={body as BlogPostBody} name={name} {...visualProp} />;
   }
   return null;
 }
