@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "test": "vitest run"
   },
   "dependencies": {
     "openai": "^4.57.0",
@@ -15,6 +16,7 @@
     "p-retry": "^6.2.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.3"
   }
 }
