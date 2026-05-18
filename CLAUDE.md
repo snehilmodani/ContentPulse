@@ -151,8 +151,20 @@ Falls back to local `./tmp/r2/` when R2 env vars (`R2_ACCOUNT_ID`, `R2_ACCESS_KE
 pnpm dev                          # start all apps
 pnpm typecheck                    # run tsc across all packages
 pnpm lint                         # eslint across all packages
-pnpm test                         # vitest across all packages
 pnpm --filter @contentpulse/db db:generate   # regenerate migrations after schema change
 pnpm --filter @contentpulse/db db:migrate    # apply migrations
 pnpm --filter @contentpulse/db db:studio     # Drizzle Studio GUI
 ```
+
+### Testing
+
+```bash
+pnpm test                         # run all tests across every package (via Turbo)
+pnpm test:api                     # API only  — errors, auth routes
+pnpm test:worker                  # worker only — adapters, sources, lib helpers
+pnpm test:web                     # web only  — apiFetch, apiUpload, cn utility
+pnpm test:ai-client               # ai-client only — error classes
+pnpm test:watch                   # re-run all tests on file change (watch mode)
+```
+
+Test files live in `test/` beside each package's `src/`. Vitest is configured per-package (`vitest.config.ts`). The web package uses `jsdom` environment; all others use `node`.

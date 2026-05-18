@@ -13,6 +13,11 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:api": "pnpm --filter @contentpulse/api test",
+    "test:worker": "pnpm --filter @contentpulse/worker test",
+    "test:web": "pnpm --filter @contentpulse/web test",
+    "test:ai-client": "pnpm --filter @contentpulse/ai-client test",
+    "test:watch": "turbo run test -- --watch",
     "db:generate": "pnpm --filter @contentpulse/db db:generate",
     "db:migrate": "pnpm --filter @contentpulse/db db:migrate",
     "db:studio": "pnpm --filter @contentpulse/db db:studio"
