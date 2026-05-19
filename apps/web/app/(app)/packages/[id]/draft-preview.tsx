@@ -72,7 +72,7 @@ function tryRecoverContent(rawText: string): Record<string, unknown> | null {
   const frag = trimmed.slice(start);
 
   // 1. Standard parse — handles a preamble before the JSON (e.g. "Here is the JSON:\n{...}")
-  try { return JSON.parse(frag) as Record<string, unknown>; } catch {}
+  try { return JSON.parse(frag) as Record<string, unknown>; } catch { /* try next strategy */ }
 
   // 2. Truncation recovery — the JSON was cut off before the closing }.
   //    Walk back to the last `",` which is a field-terminator sequence, then close the object.
@@ -82,7 +82,7 @@ function tryRecoverContent(rawText: string): Record<string, unknown> | null {
   if (lastFieldEnd > 1) {
     try {
       return JSON.parse(frag.slice(0, lastFieldEnd + 1) + '\n}') as Record<string, unknown>;
-    } catch {}
+    } catch { /* try next strategy */ }
   }
 
   // 3. Regex fallback — extract whatever complete key:value pairs exist

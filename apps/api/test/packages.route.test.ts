@@ -3,7 +3,6 @@ import { packageRoutes } from '../src/routes/packages';
 import {
   MockDb, buildApp, makeToken,
   mockContentPackage, mockIdea, mockTrend, mockBrief, mockDraft, mockVisual,
-  USER_ID,
 } from './helpers';
 
 describe('GET /content-packages', () => {

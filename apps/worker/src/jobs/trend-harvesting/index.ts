@@ -7,12 +7,8 @@ import type { TrendHarvestingJobPayload } from '@contentpulse/types';
 import { eq } from 'drizzle-orm';
 import type { Queue } from 'bullmq';
 import type { JobPayload } from '@contentpulse/types';
-import { GoogleTrendsClient } from './sources/google-trends';
-import { NewsApiClient } from './sources/newsapi';
 import type { RawTrend } from './sources/newsapi';
-import { RedditClient } from './sources/reddit';
 import { XTrendsClient } from './sources/x';
-import { YoutubeClient } from './sources/youtube';
 import { publishToUser } from '../../lib/ws-publish';
 
 interface Deps {

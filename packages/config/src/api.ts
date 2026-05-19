@@ -1,13 +1,9 @@
+import dotenv from 'dotenv';
+import path from 'path';
 import { z } from 'zod';
 
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const dotenv = require('dotenv') as typeof import('dotenv');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const path = require('path') as typeof import('path');
-  // __dirname is packages/config/src (source) or packages/config/dist (compiled); ../../.. = repo root
-  dotenv.config({ path: path.resolve(__dirname, '../../..', '.env') });
-} catch { /* dotenv not available in production — env vars pre-set by hosting */ }
+// __dirname is packages/config/src (source) or packages/config/dist (compiled); ../../.. = repo root
+try { dotenv.config({ path: path.resolve(__dirname, '../../..', '.env') }); } catch { /* .env absent in production — env vars pre-set by hosting */ }
 
 const schema = z.object({
   DATABASE_URL: z.string().url(),

@@ -3,7 +3,6 @@ import { trendRoutes } from '../src/routes/trends';
 import {
   MockDb, buildApp, makeToken,
   mockTrend, mockTrendRun, mockIdea,
-  USER_ID,
 } from './helpers';
 
 describe('GET /trend-runs', () => {

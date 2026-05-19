@@ -24,4 +24,12 @@ module.exports = {
     es2022: true,
   },
   ignorePatterns: ['dist/', '.next/', 'node_modules/', '*.js', '!.eslintrc.cjs'],
+  overrides: [
+    {
+      files: ['**/test/**/*.ts'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
+  ],
 };
