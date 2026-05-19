@@ -17,6 +17,16 @@ sleep 1
 echo "Building packages..."
 pnpm --filter @contentpulse/config --filter @contentpulse/types --filter @contentpulse/db --filter @contentpulse/ai-client build
 
+# CI checks — mirror the GitHub Actions pipeline
+echo "Type checking..."
+pnpm typecheck
+
+echo "Linting..."
+pnpm lint
+
+echo "Running tests..."
+pnpm test
+
 # Ensure infra containers are running
 echo "Starting Docker services..."
 docker compose up -d
