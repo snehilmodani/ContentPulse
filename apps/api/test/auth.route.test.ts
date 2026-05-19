@@ -91,7 +91,7 @@ async function buildApp(db: MockDb) {
   await app.register(jwtPlugin, { secret: JWT_SECRET });
 
   app.decorate('db', db as any);
-  app.decorate('authenticate', async function (this: typeof app, request: any, reply: any) {
+  app.decorate('authenticate', async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
       request.user = { id: (request.user as any).sub, email: (request.user as any).email };
