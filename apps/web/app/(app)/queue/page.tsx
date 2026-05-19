@@ -42,9 +42,11 @@ function IdeaCard({ idea, onApprove, onReject, onDefer, isLoading }: {
             <CardTitle className="text-base leading-snug">{idea.hook_line}</CardTitle>
           </div>
         </div>
-        <CardDescription className="text-xs">
-          Trend: {idea.trend.topic_name} · {idea.trend.source_platform}
-        </CardDescription>
+        {idea.trend && (
+          <CardDescription className="text-xs">
+            Trend: {idea.trend.topic_name} · {idea.trend.source_platform}
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2">
