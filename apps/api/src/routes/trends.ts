@@ -1,11 +1,70 @@
 import type { FastifyInstance } from 'fastify';
 import { and, count, desc, eq } from 'drizzle-orm';
 import type { Db } from '@contentpulse/db';
-import { ideas, trendRuns, trends } from '@contentpulse/db';
-import type { IdeaStatus } from '@contentpulse/types';
+import { domainProfiles, ideas, trendRuns, trends } from '@contentpulse/db';
+import type { IdeaStatus, TrendHarvestingJobPayload } from '@contentpulse/types';
 import { notFound } from '../lib/errors';
 
 export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
+  fastify.post(
+    '/trend-runs',
+    { preHandler: fastify.authenticate },
+    async (request, reply) => {
+      const userId = request.user.id;
+
+      const query = request.query as { trend_cap?: string };
+      let trendCap: number | undefined;
+      if (query.trend_cap !== undefined) {
+        const parsed = parseInt(query.trend_cap, 10);
+        if (Number.isNaN(parsed) || parsed < 1 || parsed > 20) {
+          return reply.code(400).send({
+            error: { code: 'INVALID_QUERY', message: 'trend_cap must be an integer between 1 and 20' },
+          });
+        }
+        trendCap = parsed;
+      }
+
+      const [profile] = await fastify.db
+        .select()
+        .from(domainProfiles)
+        .where(eq(domainProfiles.userId, userId))
+        .limit(1);
+      if (!profile) throw notFound('DomainProfile', userId);
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [trendRun] = await fastify.db
+        .insert(trendRuns)
+        .values({ userId, runDate: today })
+        .returning({ id: trendRuns.id, status: trendRuns.status, runDate: trendRuns.runDate });
+
+      if (!trendRun) throw new Error('Failed to create trend_run');
+
+      const payload: TrendHarvestingJobPayload = {
+        job_type: 'trend_harvesting',
+        user_id: userId,
+        trend_run_id: trendRun.id,
+        domain_profile: {
+          primary_domain: profile.primaryDomain,
+          sub_domains: profile.subDomains ?? [],
+          region: profile.region,
+          tone_of_voice: profile.toneOfVoice ?? [],
+        },
+        sources: ['x_twitter', 'google_trends', 'newsapi', 'reddit', 'youtube'],
+        scheduled_for: new Date().toISOString(),
+        ...(trendCap !== undefined ? { trend_cap: trendCap } : {}),
+      };
+
+      await fastify.addJob('trend-harvesting', payload);
+
+      return reply.code(201).send({
+        id: trendRun.id,
+        status: trendRun.status,
+        run_date: trendRun.runDate,
+      });
+    },
+  );
+
   fastify.get(
     '/trend-runs',
     { preHandler: fastify.authenticate },
@@ -21,7 +80,7 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
         .select()
         .from(trendRuns)
         .where(and(...conditions))
-        .orderBy(trendRuns.runDate)
+        .orderBy(desc(trendRuns.createdAt))
         .limit(limit)
         .offset(offset);
 

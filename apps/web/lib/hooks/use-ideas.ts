@@ -5,16 +5,25 @@ import { apiFetch } from '../api-client';
 import type {
   ApproveIdeaResponse,
   DeferIdeaResponse,
+  IdeaListItem,
+  IdeaResponse,
   Paginated,
   RejectIdeaResponse,
   TrendRunDetail,
   TrendRunListItem,
+  UpdateIdeaBody,
 } from '@contentpulse/types';
 
 export function useTrendRuns(page = 1) {
   return useQuery<Paginated<TrendRunListItem>>({
     queryKey: ['trend-runs', page],
     queryFn: () => apiFetch<Paginated<TrendRunListItem>>(`/trend-runs?page=${page}&limit=20`),
+    refetchInterval: (query) => {
+      const hasActiveRun = query.state.data?.data.some(
+        (r) => r.status === 'pending' || r.status === 'running',
+      );
+      return hasActiveRun ? 4000 : false;
+    },
   });
 }
 
@@ -27,10 +36,33 @@ export function useTrendRun(runId: string) {
 }
 
 export function useTrendRunIdeas(runId: string, page = 1) {
-  return useQuery({
+  return useQuery<Paginated<IdeaListItem>>({
     queryKey: ['trend-run-ideas', runId, page],
-    queryFn: () => apiFetch(`/trend-runs/${runId}/ideas?page=${page}&limit=20`),
+    queryFn: () => apiFetch<Paginated<IdeaListItem>>(`/trend-runs/${runId}/ideas?page=${page}&limit=20`),
     enabled: !!runId,
+  });
+}
+
+export function useIdea(ideaId: string | null) {
+  return useQuery<IdeaResponse>({
+    queryKey: ['idea', ideaId],
+    queryFn: () => apiFetch<IdeaResponse>(`/ideas/${ideaId}`),
+    enabled: !!ideaId,
+  });
+}
+
+export function useUpdateIdea() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ideaId, body }: { ideaId: string; body: UpdateIdeaBody }) =>
+      apiFetch<IdeaResponse>(`/ideas/${ideaId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['idea', data.id], data);
+      void queryClient.invalidateQueries({ queryKey: ['trend-run-ideas'] });
+    },
   });
 }
 

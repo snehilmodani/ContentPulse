@@ -2,9 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '@contentpulse/db';
 import { contentPackages, ideas, trends } from '@contentpulse/db';
-import type { RejectIdeaBody, ResearchBriefJobPayload } from '@contentpulse/types';
+import type { PublishedPlatform, RejectIdeaBody, ResearchBriefJobPayload, UpdateIdeaBody } from '@contentpulse/types';
 import { badRequest, notFound } from '../lib/errors';
 import type { Redis } from 'ioredis';
+
+const PUBLISHED_PLATFORMS: readonly PublishedPlatform[] = ['x_twitter', 'linkedin', 'instagram', 'youtube'];
 
 export async function ideaRoutes(
   fastify: FastifyInstance & { db: Db; redis: Redis },
@@ -43,6 +45,61 @@ export async function ideaRoutes(
         hook_line: idea.hookLine,
         core_argument: idea.coreArgument,
         platform_fit: idea.platformFit ?? [],
+        effort_estimate: idea.effortEstimate,
+        relevance_score: idea.relevanceScore,
+        status: idea.status,
+        rejection_reason: idea.rejectionReason,
+        generation_meta: idea.generationMeta,
+        created_at: idea.createdAt.toISOString(),
+      });
+    },
+  );
+
+  fastify.patch<{ Params: { ideaId: string }; Body: UpdateIdeaBody }>(
+    '/ideas/:ideaId',
+    { preHandler: fastify.authenticate },
+    async (request, reply) => {
+      const [idea] = await fastify.db
+        .select()
+        .from(ideas)
+        .where(and(eq(ideas.id, request.params.ideaId), eq(ideas.userId, request.user.id)))
+        .limit(1);
+
+      if (!idea) throw notFound('Idea', request.params.ideaId);
+      if (idea.status !== 'pending') throw badRequest(`Cannot edit an idea that is ${idea.status}`);
+
+      const body = request.body ?? {};
+      if (body.hook_line !== undefined && (body.hook_line.length < 1 || body.hook_line.length > 280)) {
+        throw badRequest('hook_line must be 1-280 chars');
+      }
+      if (body.core_argument !== undefined && (body.core_argument.length < 1 || body.core_argument.length > 2000)) {
+        throw badRequest('core_argument must be 1-2000 chars');
+      }
+      if (body.platform_fit !== undefined) {
+        if (!Array.isArray(body.platform_fit)) throw badRequest('platform_fit must be an array');
+        const invalid = (body.platform_fit as string[]).find((p) => !(PUBLISHED_PLATFORMS as readonly string[]).includes(p));
+        if (invalid !== undefined) {
+          throw badRequest(`platform_fit contains invalid platform: ${invalid}. Allowed: ${PUBLISHED_PLATFORMS.join(', ')}`);
+        }
+      }
+
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (body.hook_line !== undefined) patch['hookLine'] = body.hook_line;
+      if (body.core_argument !== undefined) patch['coreArgument'] = body.core_argument;
+      if (body.platform_fit !== undefined) patch['platformFit'] = body.platform_fit;
+
+      await fastify.db.update(ideas).set(patch).where(eq(ideas.id, idea.id));
+
+      const [trend] = await fastify.db.select().from(trends).where(eq(trends.id, idea.trendId)).limit(1);
+      return reply.send({
+        id: idea.id,
+        trend: trend
+          ? { id: trend.id, topic_name: trend.topicName, topic_slug: trend.topicSlug, category: trend.category, source_platform: trend.sourcePlatform, composite_score: trend.compositeScore ?? '0' }
+          : null,
+        angle_type: idea.angleType,
+        hook_line: body.hook_line ?? idea.hookLine,
+        core_argument: body.core_argument ?? idea.coreArgument,
+        platform_fit: body.platform_fit ?? idea.platformFit ?? [],
         effort_estimate: idea.effortEstimate,
         relevance_score: idea.relevanceScore,
         status: idea.status,

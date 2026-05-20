@@ -12,6 +12,7 @@ export interface TrendHarvestingJobPayload {
   };
   sources: Array<'x_twitter' | 'google_trends' | 'newsapi' | 'reddit' | 'youtube'>;
   scheduled_for: string;
+  trend_cap?: number;
 }
 
 export interface IdeaGenerationJobPayload {

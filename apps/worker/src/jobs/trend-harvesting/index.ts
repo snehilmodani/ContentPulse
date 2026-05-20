@@ -8,7 +8,8 @@ import { eq } from 'drizzle-orm';
 import type { Queue } from 'bullmq';
 import type { JobPayload } from '@contentpulse/types';
 import type { RawTrend } from './sources/newsapi';
-import { XTrendsClient } from './sources/x';
+// import { XTrendsClient } from './sources/x';
+import { GoogleTrendsClient } from './sources/google-trends';
 import { publishToUser } from '../../lib/ws-publish';
 
 interface Deps {
@@ -23,6 +24,7 @@ interface Deps {
     REDDIT_CLIENT_ID: string;
     REDDIT_CLIENT_SECRET: string;
     YOUTUBE_API_KEY: string;
+    GOOGLE_TRENDS_ENABLED: string;
   };
 }
 
@@ -56,20 +58,20 @@ export async function processTrendHarvesting(
     timestamp: new Date().toISOString(),
   });
 
-  const xClient = new XTrendsClient(env.X_API_BEARER_TOKEN);
+  // const xClient = new XTrendsClient(env.X_API_BEARER_TOKEN);
   // const newsClient = new NewsApiClient(env.NEWSAPI_KEY);
   // const redditClient = new RedditClient(env.REDDIT_CLIENT_ID, env.REDDIT_CLIENT_SECRET);
   // const youtubeClient = new YoutubeClient(env.YOUTUBE_API_KEY);
-  // const googleClient = new GoogleTrendsClient();
+  const googleClient = new GoogleTrendsClient(Boolean(env.GOOGLE_TRENDS_ENABLED));
 
   logger.info({ userId: user_id, trendRunId: trend_run_id, sources: ['x_twitter', 'newsapi', 'reddit', 'youtube', 'google_trends'] }, 'Fetching trends from all sources');
 
   const sourceResults = await Promise.allSettled([
-    xClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'x_twitter' as const, results: r })),
+    // xClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'x_twitter' as const, results: r })),
     // newsClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'newsapi' as const, results: r })),
     // redditClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'reddit' as const, results: r })),
     // youtubeClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'youtube' as const, results: r })),
-    // googleClient.fetchTrends(domain_profile.primary_domain, domain_profile.region).then((r) => ({ source: 'google_trends' as const, results: r })),
+    googleClient.fetchTrends(domain_profile.primary_domain, domain_profile.region, domain_profile.sub_domains ?? [], payload.trend_cap).then((r) => ({ source: 'google_trends' as const, results: r })),
   ]);
 
   const allRaw: Array<{ source: 'x_twitter' | 'google_trends' | 'newsapi' | 'reddit' | 'youtube'; trend: RawTrend }> = [];
@@ -80,16 +82,18 @@ export async function processTrendHarvesting(
         allRaw.push({ source: result.value.source, trend });
       }
     } else {
-      logger.warn({ userId: user_id, trendRunId: trend_run_id, error: result.reason }, 'Source fetch failed');
+      logger.warn({ userId: user_id, trendRunId: trend_run_id, err: result.reason }, 'Source fetch failed');
     }
   }
 
-  logger.info({ userId: user_id, trendRunId: trend_run_id, totalRawTrends: allRaw.length }, 'All sources fetched — inserting trends');
+  const cappedRaw = payload.trend_cap !== undefined ? allRaw.slice(0, payload.trend_cap) : allRaw;
+
+  logger.info({ userId: user_id, trendRunId: trend_run_id, totalRawTrends: allRaw.length, trendCap: payload.trend_cap, insertingCount: cappedRaw.length }, 'All sources fetched — inserting trends');
 
   const insertedTrendIds: string[] = [];
 
-  for (let i = 0; i < allRaw.length; i++) {
-    const item = allRaw[i];
+  for (let i = 0; i < cappedRaw.length; i++) {
+    const item = cappedRaw[i];
     if (!item) continue;
 
     const relevanceScore = (Math.random() * 30 + 60).toFixed(2);
@@ -116,7 +120,7 @@ export async function processTrendHarvesting(
     }
   }
 
-  logger.info({ userId: user_id, trendRunId: trend_run_id, insertedCount: insertedTrendIds.length, skippedCount: allRaw.length - insertedTrendIds.length }, 'Trend insert complete');
+  logger.info({ userId: user_id, trendRunId: trend_run_id, insertedCount: insertedTrendIds.length, skippedCount: cappedRaw.length - insertedTrendIds.length }, 'Trend insert complete');
 
   const now = new Date();
   await db

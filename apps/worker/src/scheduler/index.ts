@@ -71,7 +71,6 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
         const [trendRun] = await db
           .insert(trendRuns)
           .values({ userId: user.id, runDate: today })
-          .onConflictDoNothing()
           .returning({ id: trendRuns.id });
 
         if (!trendRun) {

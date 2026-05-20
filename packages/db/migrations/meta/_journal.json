@@ -8,6 +8,13 @@
       "when": 1778675144463,
       "tag": "0000_famous_wallow",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779278145457,
+      "tag": "0001_slow_wrecker",
+      "breakpoints": true
     }
   ]
 }

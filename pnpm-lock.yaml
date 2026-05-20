@@ -214,6 +214,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@alkalisummer/google-trends-js':
+        specifier: ^0.3.7
+        version: 0.3.7
       '@anthropic-ai/sdk':
         specifier: ^0.26.1
         version: 0.26.1
@@ -361,6 +364,9 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@alkalisummer/google-trends-js@0.3.7':
+    resolution: {integrity: sha512-r5ku6Af53HKKi8u9n2ILw4SLhc+l63Q+2EYfjn0Cl9LDbCy4QoywrsgyUlB+9S6EpcqZZNdYFZAhH+ie0osiPw==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -5081,6 +5087,8 @@ packages:
         optional: true
 
 snapshots:
+
+  '@alkalisummer/google-trends-js@0.3.7': {}
 
   '@alloc/quick-lru@5.2.0': {}
 

@@ -23,6 +23,7 @@ const schema = z.object({
   REDDIT_CLIENT_ID: z.string().default(''),
   REDDIT_CLIENT_SECRET: z.string().default(''),
   YOUTUBE_API_KEY: z.string().default(''),
+  GOOGLE_TRENDS_ENABLED: z.string().default(''),
 
   UNSPLASH_ACCESS_KEY: z.string().default(''),
   PEXELS_API_KEY: z.string().default(''),

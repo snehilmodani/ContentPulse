@@ -8,6 +8,7 @@ import type {
   NotificationChannel,
   NotificationEvent,
   PackageStatus,
+  PublishedPlatform,
   RunStatus,
   TrendCategory,
   TrendSource,
@@ -203,6 +204,12 @@ export interface ApproveIdeaResponse {
 
 export interface RejectIdeaBody {
   reason?: string;
+}
+
+export interface UpdateIdeaBody {
+  hook_line?: string;
+  core_argument?: string;
+  platform_fit?: PublishedPlatform[];
 }
 
 export interface RejectIdeaResponse {
