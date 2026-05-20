@@ -19,20 +19,26 @@ interface Deps {
 
 const ANGLE_TYPES = ['news', 'innovation', 'contrarian', 'comedic', 'tangential_insight'] as const;
 
+const ALLOWED_PLATFORMS = new Set(['x_twitter', 'linkedin', 'instagram', 'youtube']);
+
 export function parseIdeasFromText(text: string, trendId: string, userId: string, trendRunId: string, model: string) {
   try {
     const parsed = JSON.parse(text) as Array<{ angle_type: string; hook_line: string; core_argument: string; platform_fit: string[] }>;
-    return parsed.slice(0, 5).map((idea, i) => ({
-      trendId,
-      trendRunId,
-      userId,
-      angleType: (ANGLE_TYPES[i % ANGLE_TYPES.length] ?? 'news') as typeof ANGLE_TYPES[number],
-      hookLine: idea.hook_line ?? `Hook: ${idea.angle_type}`,
-      coreArgument: idea.core_argument ?? 'Core argument placeholder',
-      platformFit: idea.platform_fit ?? ['x_twitter', 'linkedin'],
-      relevanceScore: (75 + Math.random() * 20).toFixed(2),
-      generationMeta: { model, stub: false },
-    }));
+    return parsed.slice(0, 5).map((idea, i) => {
+      const rawFit = Array.isArray(idea.platform_fit) ? idea.platform_fit : [];
+      const cleanedFit = rawFit.filter((p) => ALLOWED_PLATFORMS.has(p));
+      return {
+        trendId,
+        trendRunId,
+        userId,
+        angleType: (ANGLE_TYPES[i % ANGLE_TYPES.length] ?? 'news') as typeof ANGLE_TYPES[number],
+        hookLine: idea.hook_line ?? `Hook: ${idea.angle_type}`,
+        coreArgument: idea.core_argument ?? 'Core argument placeholder',
+        platformFit: cleanedFit.length > 0 ? cleanedFit : ['x_twitter', 'linkedin'],
+        relevanceScore: (75 + Math.random() * 20).toFixed(2),
+        generationMeta: { model, stub: false },
+      };
+    });
   } catch {
     return ANGLE_TYPES.slice(0, 5).map((angle, i) => ({
       trendId,
@@ -90,7 +96,7 @@ export async function processIdeaGeneration(
         userId: user_id,
         systemBlocks: [
           {
-            text: 'You are an expert social media content strategist. Generate exactly 5 content ideas for solo creators. Return a JSON array of objects with: angle_type, hook_line, core_argument, platform_fit[].',
+            text: 'You are an expert social media content strategist. Generate exactly 5 content ideas for solo creators. Return a JSON array of objects with: angle_type, hook_line, core_argument, platform_fit[]. platform_fit must be an array containing only these exact values: "x_twitter", "linkedin", "instagram", "youtube". Pick 1-3 values that best fit each idea.',
             cacheable: false,
           },
         ],

@@ -130,7 +130,10 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
     if (!idea) return;
     setEditHook(idea.hook_line);
     setEditArgument(idea.core_argument);
-    setEditPlatforms((idea.platform_fit as DraftFormat[]) ?? []);
+    const normalized = (idea.platform_fit ?? [])
+      .map((p) => normalizePlatform(p))
+      .filter((p): p is PublishedPlatform => p !== null);
+    setEditPlatforms(Array.from(new Set(normalized)));
     setIsEditing(true);
   };
 
@@ -138,7 +141,7 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
     setIsEditing(false);
   };
 
-  const togglePlatform = (p: DraftFormat) => {
+  const togglePlatform = (p: PublishedPlatform) => {
     setEditPlatforms((prev) =>
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p],
     );
@@ -259,7 +262,7 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
                               : 'bg-transparent text-foreground border-input hover:bg-muted',
                           )}
                         >
-                          {p.replace(/_/g, ' ')}
+                          {PLATFORM_LABELS[p]}
                         </button>
                       ))}
                     </div>
