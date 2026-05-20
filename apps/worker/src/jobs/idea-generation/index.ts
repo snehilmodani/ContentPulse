@@ -21,9 +21,25 @@ const ANGLE_TYPES = ['news', 'innovation', 'contrarian', 'comedic', 'tangential_
 
 const ALLOWED_PLATFORMS = new Set(['x_twitter', 'linkedin', 'instagram', 'youtube']);
 
+// Strips common AI wrappers (markdown fences, leading prose) and returns the
+// first top-level JSON array substring, or null if none is found.
+export function extractJsonArray(text: string): string | null {
+  let s = text.trim();
+  const fence = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  if (fence) s = fence[1]!.trim();
+  if (s.startsWith('[')) return s;
+  const first = s.indexOf('[');
+  const last = s.lastIndexOf(']');
+  if (first !== -1 && last > first) return s.slice(first, last + 1);
+  return null;
+}
+
 export function parseIdeasFromText(text: string, trendId: string, userId: string, trendRunId: string, model: string) {
   try {
-    const parsed = JSON.parse(text) as Array<{ angle_type: string; hook_line: string; core_argument: string; platform_fit: string[] }>;
+    const candidate = extractJsonArray(text);
+    if (!candidate) throw new Error('no JSON array found in AI response');
+    const parsed = JSON.parse(candidate) as Array<{ angle_type: string; hook_line: string; core_argument: string; platform_fit: string[] }>;
+    if (!Array.isArray(parsed)) throw new Error('parsed JSON is not an array');
     return parsed.slice(0, 5).map((idea, i) => {
       const rawFit = Array.isArray(idea.platform_fit) ? idea.platform_fit : [];
       const cleanedFit = rawFit.filter((p) => ALLOWED_PLATFORMS.has(p));
@@ -45,7 +61,7 @@ export function parseIdeasFromText(text: string, trendId: string, userId: string
       trendRunId,
       userId,
       angleType: angle,
-      hookLine: `${angle.charAt(0).toUpperCase() + angle.slice(1)} angle: ${text.slice(0, 60)}`,
+      hookLine: `Idea generation failed — ${angle.replace(/_/g, ' ')} angle (retry pending)`,
       coreArgument: `This ${angle} perspective offers unique insights for creators.`,
       platformFit: ['x_twitter', 'linkedin', 'instagram'],
       relevanceScore: (75 + i * 2).toFixed(2),
@@ -106,7 +122,7 @@ export async function processIdeaGeneration(
             content: `Generate 5 content ideas about: "${trend.topicName}" (category: ${trend.category}). Return only a valid JSON array.`,
           },
         ],
-        maxTokens: 1024,
+        maxTokens: 2048,
       });
 
       logger.debug({ userId: user_id, trendId: trend.id, responseLength: result.text.length, duration_ms: Date.now() - trendStart }, 'AI response received');

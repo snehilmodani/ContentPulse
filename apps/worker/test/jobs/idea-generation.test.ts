@@ -49,6 +49,42 @@ describe('parseIdeasFromText — invalid / non-JSON text', () => {
     const result = parseIdeasFromText('{broken', 't1', 'u1', 'r1', 'haiku');
     expect(result.every((i) => i.generationMeta.stub === true)).toBe(true);
   });
+
+  it('uses a neutral stub hook line that does not echo raw response', () => {
+    const result = parseIdeasFromText('{broken response with leaked content', 't1', 'u1', 'r1', 'haiku');
+    for (const idea of result) {
+      expect(idea.hookLine).not.toContain('broken response');
+      expect(idea.hookLine).toContain('Idea generation failed');
+    }
+  });
+});
+
+describe('parseIdeasFromText — JSON wrapped in noise', () => {
+  const ideas = [
+    { angle_type: 'news', hook_line: 'Hook A', core_argument: 'Arg A', platform_fit: ['x_twitter'] },
+  ];
+
+  it('handles ```json fenced output', () => {
+    const text = '```json\n' + JSON.stringify(ideas) + '\n```';
+    const result = parseIdeasFromText(text, 't1', 'u1', 'r1', 'haiku');
+    expect(result).toHaveLength(1);
+    expect(result[0]!.hookLine).toBe('Hook A');
+    expect(result[0]!.generationMeta.stub).toBe(false);
+  });
+
+  it('handles ``` (no language) fenced output', () => {
+    const text = '```\n' + JSON.stringify(ideas) + '\n```';
+    const result = parseIdeasFromText(text, 't1', 'u1', 'r1', 'haiku');
+    expect(result[0]!.hookLine).toBe('Hook A');
+    expect(result[0]!.generationMeta.stub).toBe(false);
+  });
+
+  it('handles leading and trailing prose around the array', () => {
+    const text = 'Here are the ideas:\n' + JSON.stringify(ideas) + '\n\nHope this helps!';
+    const result = parseIdeasFromText(text, 't1', 'u1', 'r1', 'haiku');
+    expect(result[0]!.hookLine).toBe('Hook A');
+    expect(result[0]!.generationMeta.stub).toBe(false);
+  });
 });
 
 describe('parseIdeasFromText — partial JSON (missing hook_line)', () => {
