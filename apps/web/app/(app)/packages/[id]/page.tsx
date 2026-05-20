@@ -15,6 +15,7 @@ import {
   useExportPackage,
 } from '@/lib/hooks/use-packages';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -335,7 +336,12 @@ export default function PackagePage() {
       void queryClient.invalidateQueries({ queryKey: ['packages', packageId, 'visuals'] });
     }
   }, [pkg?.status, packageId, queryClient]);
+  const [showExportConfirm, setShowExportConfirm] = useState(false);
+
   const drafts = (draftsData?.data ?? []).slice().sort((a, b) => a.format.localeCompare(b.format));
+  const totalDrafts = drafts.length;
+  const approvedDrafts = drafts.filter((d) => d.status === 'approved').length;
+  const allDraftsApproved = totalDrafts > 0 && approvedDrafts === totalDrafts;
   const visualByType = new Map((visualsData?.data ?? []).map((v) => [v.visual_type, v]));
   const showPipeline = IN_FLIGHT.has(pkgStatus);
   const showBrief = BRIEF_VISIBLE.has(pkgStatus) && !!brief;
@@ -362,7 +368,17 @@ export default function PackagePage() {
           )}
         </div>
         {(pkgStatus === 'ready' || pkgStatus === 'approved') && (
-          <Button onClick={() => exportPackage.mutate(packageId)} disabled={exportPackage.isPending} className="gap-2">
+          <Button
+            onClick={() => {
+              if (allDraftsApproved) {
+                exportPackage.mutate(packageId);
+              } else {
+                setShowExportConfirm(true);
+              }
+            }}
+            disabled={exportPackage.isPending}
+            className="gap-2"
+          >
             {exportPackage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Export Package
           </Button>
@@ -406,6 +422,39 @@ export default function PackagePage() {
           </div>
         )}
       </div>
+
+      <Dialog open={showExportConfirm} onOpenChange={setShowExportConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Export with only approved drafts?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              The export will only include drafts you've approved. Unapproved drafts are skipped.
+            </p>
+            <p><span className="font-medium">Drafts:</span> {approvedDrafts} of {totalDrafts} approved</p>
+            {approvedDrafts === 0 && (
+              <p className="text-amber-700 dark:text-amber-400 text-xs">
+                No drafts are approved — the ZIP will contain only a checklist file.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowExportConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setShowExportConfirm(false);
+                exportPackage.mutate(packageId);
+              }}
+            >
+              Export anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

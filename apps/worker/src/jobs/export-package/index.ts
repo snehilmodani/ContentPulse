@@ -93,7 +93,6 @@ export async function processExportPackage(
   await db
     .update(contentPackages)
     .set({
-      status: 'exported',
       exportR2Key: zipKey,
       exportUrl: signedUrl,
       exportUrlExpiresAt: expiresAt,

@@ -4,6 +4,7 @@ import type { Db } from '@contentpulse/db';
 import { drafts, topicBriefs } from '@contentpulse/db';
 import type { DraftRegenerationJobPayload, RejectDraftBody } from '@contentpulse/types';
 import { notFound } from '../lib/errors';
+import { maybeAutoApprovePackage } from '../lib/package-status';
 
 export async function draftRoutes(fastify: FastifyInstance & { db: Db }) {
   fastify.get<{ Params: { draftId: string } }>(
@@ -83,7 +84,7 @@ export async function draftRoutes(fastify: FastifyInstance & { db: Db }) {
     { preHandler: fastify.authenticate },
     async (request, reply) => {
       const [draft] = await fastify.db
-        .select({ id: drafts.id, userId: drafts.userId })
+        .select({ id: drafts.id, userId: drafts.userId, contentPackageId: drafts.contentPackageId })
         .from(drafts)
         .where(and(eq(drafts.id, request.params.draftId), eq(drafts.userId, request.user.id)))
         .limit(1);
@@ -96,6 +97,8 @@ export async function draftRoutes(fastify: FastifyInstance & { db: Db }) {
         .set({ status: 'approved', approvedAt: now, updatedAt: now })
         .where(eq(drafts.id, draft.id));
 
+      await maybeAutoApprovePackage(fastify.db, draft.contentPackageId);
+
       return reply.send({ draft_id: draft.id, status: 'approved', approved_at: now.toISOString() });
     },
   );
@@ -105,7 +108,7 @@ export async function draftRoutes(fastify: FastifyInstance & { db: Db }) {
     { preHandler: fastify.authenticate },
     async (request, reply) => {
       const [draft] = await fastify.db
-        .select({ id: drafts.id, userId: drafts.userId })
+        .select({ id: drafts.id, userId: drafts.userId, contentPackageId: drafts.contentPackageId })
         .from(drafts)
         .where(and(eq(drafts.id, request.params.draftId), eq(drafts.userId, request.user.id)))
         .limit(1);
@@ -117,6 +120,8 @@ export async function draftRoutes(fastify: FastifyInstance & { db: Db }) {
         .update(drafts)
         .set({ status: 'rejected', rejectedAt: now, updatedAt: now, ...(request.body?.reason !== undefined ? { rejectionReason: request.body.reason } : {}) })
         .where(eq(drafts.id, draft.id));
+
+      await maybeAutoApprovePackage(fastify.db, draft.contentPackageId);
 
       return reply.send({ draft_id: draft.id, status: 'rejected' });
     },
