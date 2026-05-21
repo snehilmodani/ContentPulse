@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { and, count, desc, eq } from 'drizzle-orm';
 import type { Db } from '@contentpulse/db';
-import { domainProfiles, ideas, trendRuns, trends } from '@contentpulse/db';
+import { contentPackages, domainProfiles, ideas, trendRuns, trends } from '@contentpulse/db';
 import type { CreateTrendRunBody, IdeaStatus, TrendHarvestingJobPayload } from '@contentpulse/types';
 import { notFound } from '../lib/errors';
 
@@ -203,11 +203,12 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
 
       const data = await Promise.all(
         ideaList.map(async (idea) => {
-          const [trend] = await fastify.db
-            .select()
-            .from(trends)
-            .where(eq(trends.id, idea.trendId))
-            .limit(1);
+          const [trend, pkg] = await Promise.all([
+            fastify.db.select().from(trends).where(eq(trends.id, idea.trendId)).limit(1).then((r) => r[0]),
+            idea.status === 'approved'
+              ? fastify.db.select({ id: contentPackages.id }).from(contentPackages).where(eq(contentPackages.ideaId, idea.id)).limit(1).then((r) => r[0])
+              : Promise.resolve(undefined),
+          ]);
 
           return {
             id: idea.id,
@@ -226,6 +227,7 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
             platform_fit: idea.platformFit ?? [],
             relevance_score: idea.relevanceScore,
             status: idea.status,
+            content_package_id: pkg?.id ?? null,
           };
         }),
       );

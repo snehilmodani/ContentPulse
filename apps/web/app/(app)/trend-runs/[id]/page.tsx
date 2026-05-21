@@ -103,9 +103,15 @@ function IdeaCard({ idea, onOpen }: { idea: IdeaListItem; onOpen: () => void }) 
             <Badge key={p} variant="outline" className="text-xs">{p.replace(/_/g, ' ')}</Badge>
           ))}
         </div>
-        <Button size="sm" variant="outline" onClick={onOpen}>
-          Review
-        </Button>
+        {idea.status === 'approved' && idea.content_package_id ? (
+          <Link href={`/packages/${idea.content_package_id}`}>
+            <Button size="sm" variant="outline">View Package</Button>
+          </Link>
+        ) : (
+          <Button size="sm" variant="outline" onClick={onOpen}>
+            Review
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

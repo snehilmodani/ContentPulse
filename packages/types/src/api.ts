@@ -188,6 +188,7 @@ export interface IdeaListItem {
   platform_fit: string[];
   relevance_score: string;
   status: IdeaStatus;
+  content_package_id: string | null;
 }
 
 export interface IdeaResponse {
