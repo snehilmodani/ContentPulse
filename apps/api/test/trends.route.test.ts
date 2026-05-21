@@ -103,9 +103,11 @@ describe('GET /trend-runs/:runId', () => {
   afterEach(async () => { await app.close(); vi.clearAllMocks(); });
 
   it('returns run with nested trends array including idea_count', async () => {
-    db.enqueue([mockTrendRun]);
-    db.enqueue([mockTrend]);
-    db.enqueue([{ total: 4 }]);
+    db.enqueue([mockTrendRun]);     // run lookup
+    db.enqueue([mockTrend]);        // trends list
+    db.enqueue([{ total: 15 }]);   // ideaCountRows (total ideas for run)
+    db.enqueue([{ total: 10 }]);   // pendingCountRows (pending ideas for run)
+    db.enqueue([{ total: 4 }]);    // per-trend idea count
     const token = makeToken(app);
 
     const res = await app.inject({
@@ -116,6 +118,8 @@ describe('GET /trend-runs/:runId', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.id).toBe(mockTrendRun.id);
+    expect(body.idea_count).toBe(15);
+    expect(body.pending_idea_count).toBe(10);
     expect(body.trends).toHaveLength(1);
     expect(body.trends[0]).toMatchObject({
       id: mockTrend.id,
