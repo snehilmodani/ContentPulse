@@ -253,6 +253,7 @@ export async function packageRoutes(fastify: FastifyInstance & { db: Db }) {
           hook_line: idea.hookLine,
           core_argument: idea.coreArgument,
           angle_type: idea.angleType,
+          platform_fit: idea.platformFit ?? [],
         },
         domain_profile: {
           primary_domain: trend?.topicSlug ?? idea.hookLine,

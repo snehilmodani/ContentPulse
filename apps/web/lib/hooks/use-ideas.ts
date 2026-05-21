@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api-client';
 import type {
   ApproveIdeaResponse,
+  CreateTrendRunBody,
   DeferIdeaResponse,
   IdeaListItem,
   IdeaResponse,
@@ -97,5 +98,17 @@ export function useDeferIdea() {
     mutationFn: (ideaId: string) =>
       apiFetch<DeferIdeaResponse>(`/ideas/${ideaId}/defer`, { method: 'POST' }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['trend-run-ideas'] }),
+  });
+}
+
+export function useCreateTrendRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateTrendRunBody) =>
+      apiFetch<{ id: string; status: string; run_date: string }>(
+        `/trend-runs`,
+        { method: 'POST', body: JSON.stringify(body) },
+      ),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['trend-runs'] }),
   });
 }

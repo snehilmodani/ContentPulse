@@ -1,0 +1,1 @@
+ALTER TYPE "published_platform" ADD VALUE 'blog_post';

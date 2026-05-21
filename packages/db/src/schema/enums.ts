@@ -107,4 +107,5 @@ export const publishedPlatformEnum = pgEnum('published_platform', [
   'linkedin',
   'instagram',
   'youtube',
+  'blog_post',
 ]);

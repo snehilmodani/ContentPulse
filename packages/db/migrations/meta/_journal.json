@@ -15,6 +15,20 @@
       "when": 1779278145457,
       "tag": "0001_slow_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779357249835,
+      "tag": "0002_lethal_scream",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779359156352,
+      "tag": "0003_hard_annihilus",
+      "breakpoints": true
     }
   ]
 }

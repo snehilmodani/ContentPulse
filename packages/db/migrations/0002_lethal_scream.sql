@@ -1,0 +1,1 @@
+ALTER TABLE "trend_runs" ADD COLUMN "domain_snapshot" jsonb DEFAULT '{}'::jsonb NOT NULL;

@@ -61,4 +61,4 @@ export type AngleType =
 
 export type EffortEstimate = 'low' | 'medium' | 'high';
 
-export type PublishedPlatform = 'x_twitter' | 'linkedin' | 'instagram' | 'youtube';
+export type PublishedPlatform = 'x_twitter' | 'linkedin' | 'instagram' | 'youtube' | 'blog_post';

@@ -6,7 +6,7 @@ import type { PublishedPlatform, RejectIdeaBody, ResearchBriefJobPayload, Update
 import { badRequest, notFound } from '../lib/errors';
 import type { Redis } from 'ioredis';
 
-const PUBLISHED_PLATFORMS: readonly PublishedPlatform[] = ['x_twitter', 'linkedin', 'instagram', 'youtube'];
+const PUBLISHED_PLATFORMS: readonly PublishedPlatform[] = ['x_twitter', 'linkedin', 'instagram', 'youtube', 'blog_post'];
 
 export async function ideaRoutes(
   fastify: FastifyInstance & { db: Db; redis: Redis },
@@ -152,6 +152,7 @@ export async function ideaRoutes(
           hook_line: idea.hookLine,
           core_argument: idea.coreArgument,
           angle_type: idea.angleType,
+          platform_fit: idea.platformFit ?? [],
         },
         domain_profile: {
           primary_domain: trend?.topicSlug ?? idea.hookLine,

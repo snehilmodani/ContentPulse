@@ -19,7 +19,7 @@ interface Deps {
 
 const ANGLE_TYPES = ['news', 'innovation', 'contrarian', 'comedic', 'tangential_insight'] as const;
 
-const ALLOWED_PLATFORMS = new Set(['x_twitter', 'linkedin', 'instagram', 'youtube']);
+const ALLOWED_PLATFORMS = new Set(['x_twitter', 'linkedin', 'instagram', 'youtube', 'blog_post']);
 
 // Strips common AI wrappers (markdown fences, leading prose) and returns the
 // first top-level JSON array substring, or null if none is found.
@@ -112,7 +112,7 @@ export async function processIdeaGeneration(
         userId: user_id,
         systemBlocks: [
           {
-            text: 'You are an expert social media content strategist. Generate exactly 5 content ideas for solo creators. Return a JSON array of objects with: angle_type, hook_line, core_argument, platform_fit[]. platform_fit must be an array containing only these exact values: "x_twitter", "linkedin", "instagram", "youtube". Pick 1-3 values that best fit each idea.',
+            text: 'You are an expert social media content strategist. Generate exactly 5 content ideas for solo creators. Return a JSON array of objects with: angle_type, hook_line, core_argument, platform_fit[]. platform_fit must be an array containing only these exact values: "x_twitter", "linkedin", "instagram", "youtube", "blog_post". Pick 1-3 values that best fit each idea.',
             cacheable: false,
           },
         ],

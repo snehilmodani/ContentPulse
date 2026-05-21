@@ -18,13 +18,14 @@ import { ArrowLeft, CheckCircle, XCircle, Clock, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { IdeaListItem, PublishedPlatform } from '@contentpulse/types';
 
-const PLATFORM_OPTIONS: PublishedPlatform[] = ['x_twitter', 'linkedin', 'instagram', 'youtube'];
+const PLATFORM_OPTIONS: PublishedPlatform[] = ['x_twitter', 'linkedin', 'instagram', 'youtube', 'blog_post'];
 
 const PLATFORM_LABELS: Record<PublishedPlatform, string> = {
   x_twitter: 'X (Twitter)',
   linkedin: 'LinkedIn',
   instagram: 'Instagram',
   youtube: 'YouTube',
+  blog_post: 'Blog Post',
 };
 
 function normalizePlatform(raw: string): PublishedPlatform | null {
@@ -33,6 +34,7 @@ function normalizePlatform(raw: string): PublishedPlatform | null {
   if (s === 'linkedin' || s === 'linkedin_article' || s === 'linkedin_carousel') return 'linkedin';
   if (s === 'instagram' || s === 'instagram_post' || s === 'reel_script') return 'instagram';
   if (s === 'youtube' || s === 'yt') return 'youtube';
+  if (s === 'blog_post' || s === 'blog' || s === 'newsletter') return 'blog_post';
   return null;
 }
 

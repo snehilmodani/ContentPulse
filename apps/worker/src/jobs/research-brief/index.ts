@@ -5,7 +5,7 @@ import { contentPackages, topicBriefs } from '@contentpulse/db';
 import type { ResearchBriefJobPayload } from '@contentpulse/types';
 import { eq } from 'drizzle-orm';
 import type { Queue } from 'bullmq';
-import type { JobPayload, ContentDraftingJobPayload, VisualGenerationJobPayload } from '@contentpulse/types';
+import type { DraftFormat, JobPayload, ContentDraftingJobPayload, VisualGenerationJobPayload } from '@contentpulse/types';
 import { publishToUser } from '../../lib/ws-publish';
 import { PerplexityClient } from '../../adapters/perplexity';
 
@@ -112,7 +112,23 @@ export async function processResearchBrief(
     .set({ status: 'drafting', updatedAt: new Date() })
     .where(eq(contentPackages.id, content_package_id));
 
-  const SELECTED_FORMATS = ['x_thread', 'linkedin_article', 'instagram_post', 'reel_script', 'blog_post'] as const;
+  const PLATFORM_TO_FORMATS: Record<string, DraftFormat[]> = {
+    x_twitter: ['x_thread'],
+    linkedin: ['linkedin_article'],
+    instagram: ['instagram_post', 'reel_script'],
+    youtube: ['reel_script'],
+    blog_post: ['blog_post'],
+  };
+  const DEFAULT_FORMATS: DraftFormat[] = ['x_thread', 'linkedin_article', 'instagram_post', 'reel_script', 'blog_post'];
+
+  const derivedFormats = (idea.platform_fit ?? []).reduce<DraftFormat[]>((acc, platform) => {
+    for (const fmt of PLATFORM_TO_FORMATS[platform] ?? []) {
+      if (!acc.includes(fmt)) acc.push(fmt);
+    }
+    return acc;
+  }, []);
+  const SELECTED_FORMATS = derivedFormats.length > 0 ? derivedFormats : DEFAULT_FORMATS;
+
   const VISUAL_TYPES = ['thumbnail', 'square_post', 'story_cover'] as const;
 
   const draftingPayload: ContentDraftingJobPayload = {
@@ -121,7 +137,7 @@ export async function processResearchBrief(
     content_package_id,
     topic_brief_id: brief.id,
     idea_id,
-    selected_formats: [...SELECTED_FORMATS],
+    selected_formats: SELECTED_FORMATS,
     domain_profile: {
       tone_of_voice: ['professional', 'engaging'],
       creator_persona: domain_profile.primary_domain,

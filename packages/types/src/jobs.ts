@@ -33,6 +33,7 @@ export interface ResearchBriefJobPayload {
     hook_line: string;
     core_argument: string;
     angle_type: string;
+    platform_fit: string[];
   };
   domain_profile: {
     primary_domain: string;

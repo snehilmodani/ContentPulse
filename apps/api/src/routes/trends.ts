@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { and, count, desc, eq } from 'drizzle-orm';
 import type { Db } from '@contentpulse/db';
 import { domainProfiles, ideas, trendRuns, trends } from '@contentpulse/db';
-import type { IdeaStatus, TrendHarvestingJobPayload } from '@contentpulse/types';
+import type { CreateTrendRunBody, IdeaStatus, TrendHarvestingJobPayload } from '@contentpulse/types';
 import { notFound } from '../lib/errors';
 
 export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
@@ -12,16 +12,29 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
     async (request, reply) => {
       const userId = request.user.id;
 
+      // Support trend_cap from either query string (legacy) or JSON body
       const query = request.query as { trend_cap?: string };
+      const body = (request.body ?? {}) as CreateTrendRunBody;
+
       let trendCap: number | undefined;
-      if (query.trend_cap !== undefined) {
-        const parsed = parseInt(query.trend_cap, 10);
-        if (Number.isNaN(parsed) || parsed < 1 || parsed > 20) {
+      const rawCap = body.trend_cap ?? (query.trend_cap !== undefined ? parseInt(query.trend_cap, 10) : undefined);
+      if (rawCap !== undefined) {
+        if (!Number.isInteger(rawCap) || rawCap < 1 || rawCap > 20) {
           return reply.code(400).send({
-            error: { code: 'INVALID_QUERY', message: 'trend_cap must be an integer between 1 and 20' },
+            error: { code: 'INVALID_BODY', message: 'trend_cap must be an integer between 1 and 20' },
           });
         }
-        trendCap = parsed;
+        trendCap = rawCap;
+      }
+
+      const override = body.domain_override ?? {};
+      if (
+        (override.primary_domain !== undefined && override.primary_domain.trim() === '') ||
+        (override.region !== undefined && override.region.trim() === '')
+      ) {
+        return reply.code(400).send({
+          error: { code: 'INVALID_BODY', message: 'primary_domain and region must be non-empty strings' },
+        });
       }
 
       const [profile] = await fastify.db
@@ -31,11 +44,18 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
         .limit(1);
       if (!profile) throw notFound('DomainProfile', userId);
 
+      const effective = {
+        primary_domain: override.primary_domain ?? profile.primaryDomain,
+        sub_domains: override.sub_domains ?? (profile.subDomains ?? []),
+        region: override.region ?? profile.region,
+        tone_of_voice: override.tone_of_voice ?? (profile.toneOfVoice ?? []),
+      };
+
       const today = new Date().toISOString().slice(0, 10);
 
       const [trendRun] = await fastify.db
         .insert(trendRuns)
-        .values({ userId, runDate: today })
+        .values({ userId, runDate: today, domainSnapshot: effective })
         .returning({ id: trendRuns.id, status: trendRuns.status, runDate: trendRuns.runDate });
 
       if (!trendRun) throw new Error('Failed to create trend_run');
@@ -44,12 +64,7 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
         job_type: 'trend_harvesting',
         user_id: userId,
         trend_run_id: trendRun.id,
-        domain_profile: {
-          primary_domain: profile.primaryDomain,
-          sub_domains: profile.subDomains ?? [],
-          region: profile.region,
-          tone_of_voice: profile.toneOfVoice ?? [],
-        },
+        domain_profile: effective,
         sources: ['x_twitter', 'google_trends', 'newsapi', 'reddit', 'youtube'],
         scheduled_for: new Date().toISOString(),
         ...(trendCap !== undefined ? { trend_cap: trendCap } : {}),

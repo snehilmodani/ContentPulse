@@ -104,6 +104,16 @@ export interface UpsertDomainProfileBody {
   inspiration_accounts?: string[];
 }
 
+export interface CreateTrendRunBody {
+  trend_cap?: number;
+  domain_override?: {
+    primary_domain?: string;
+    sub_domains?: string[];
+    region?: string;
+    tone_of_voice?: string[];
+  };
+}
+
 // ─── Brand Kit ────────────────────────────────────────────────────────────────
 
 export interface BrandKitResponse {

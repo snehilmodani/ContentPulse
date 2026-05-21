@@ -14,6 +14,7 @@ export const trendRuns = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     status: runStatusEnum('status').notNull().default('pending'),
     stageTimings: jsonb('stage_timings').notNull().default({}),
+    domainSnapshot: jsonb('domain_snapshot').notNull().default({}),
     errorMessage: text('error_message'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
