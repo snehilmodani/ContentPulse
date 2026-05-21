@@ -164,6 +164,8 @@ export interface TrendRunDetail {
   run_date: string;
   status: RunStatus;
   stage_timings: Record<string, unknown>;
+  idea_count: number;
+  pending_idea_count: number;
   trends: TrendSummary[];
 }
 

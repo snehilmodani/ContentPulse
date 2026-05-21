@@ -74,6 +74,7 @@ export function useApproveIdea() {
       apiFetch<ApproveIdeaResponse>(`/ideas/${ideaId}/approve`, { method: 'POST' }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['trend-run-ideas'] });
+      void queryClient.invalidateQueries({ queryKey: ['trend-run'] });
       void queryClient.invalidateQueries({ queryKey: ['trend-runs'] });
       void queryClient.invalidateQueries({ queryKey: ['packages'] });
     },
@@ -88,7 +89,10 @@ export function useRejectIdea() {
         method: 'POST',
         body: JSON.stringify(reason !== undefined ? { reason } : {}),
       }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['trend-run-ideas'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['trend-run-ideas'] });
+      void queryClient.invalidateQueries({ queryKey: ['trend-run'] });
+    },
   });
 }
 
@@ -97,7 +101,10 @@ export function useDeferIdea() {
   return useMutation({
     mutationFn: (ideaId: string) =>
       apiFetch<DeferIdeaResponse>(`/ideas/${ideaId}/defer`, { method: 'POST' }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['trend-run-ideas'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['trend-run-ideas'] });
+      void queryClient.invalidateQueries({ queryKey: ['trend-run'] });
+    },
   });
 }
 

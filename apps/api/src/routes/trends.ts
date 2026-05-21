@@ -141,25 +141,30 @@ export async function trendRoutes(fastify: FastifyInstance & { db: Db }) {
         .where(eq(trends.trendRunId, run.id))
         .orderBy(trends.compositeScore);
 
-      const trendSummaries = await Promise.all(
-        trendList.map(async (t) => {
-          const ideaCountRows = await fastify.db.select({ total: count() }).from(ideas).where(eq(ideas.trendId, t.id));
-
-          return {
-            id: t.id,
-            topic_name: t.topicName,
-            category: t.category,
-            composite_score: t.compositeScore ?? '0',
-            idea_count: ideaCountRows[0]?.total ?? 0,
-          };
-        }),
-      );
+      const [ideaCountRows, pendingCountRows, trendSummaries] = await Promise.all([
+        fastify.db.select({ total: count() }).from(ideas).where(eq(ideas.trendRunId, run.id)),
+        fastify.db.select({ total: count() }).from(ideas).where(and(eq(ideas.trendRunId, run.id), eq(ideas.status, 'pending'))),
+        Promise.all(
+          trendList.map(async (t) => {
+            const rows = await fastify.db.select({ total: count() }).from(ideas).where(eq(ideas.trendId, t.id));
+            return {
+              id: t.id,
+              topic_name: t.topicName,
+              category: t.category,
+              composite_score: t.compositeScore ?? '0',
+              idea_count: rows[0]?.total ?? 0,
+            };
+          }),
+        ),
+      ]);
 
       return reply.send({
         id: run.id,
         run_date: run.runDate,
         status: run.status,
         stage_timings: run.stageTimings,
+        idea_count: ideaCountRows[0]?.total ?? 0,
+        pending_idea_count: pendingCountRows[0]?.total ?? 0,
         trends: trendSummaries,
       });
     },

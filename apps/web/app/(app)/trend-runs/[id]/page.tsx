@@ -333,8 +333,8 @@ export default function TrendRunIdeasPage() {
   const [openIdeaId, setOpenIdeaId] = useState<string | null>(null);
 
   const ideas = ideasData?.data ?? [];
-  const totalIdeaCount = ideasData?.meta?.total ?? ideas.length;
-  const pendingCount = ideas.filter((i) => i.status === 'pending').length;
+  const totalIdeaCount = run?.idea_count ?? ideasData?.meta?.total ?? ideas.length;
+  const pendingCount = run?.pending_idea_count ?? ideas.filter((i) => i.status === 'pending').length;
 
   return (
     <div className="space-y-6">
