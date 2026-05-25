@@ -4,6 +4,8 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
+import fs from 'fs';
+import path from 'path';
 import type { ApiEnv } from '@contentpulse/config';
 import { getDb } from '@contentpulse/db';
 import { errorHandler } from './lib/errors';
@@ -59,8 +61,23 @@ export async function buildApp(env: ApiEnv) {
     secretKey: env.R2_SECRET_KEY,
     bucketName: env.R2_BUCKET_NAME,
     publicUrl: env.R2_PUBLIC_URL,
+    localRoot: env.LOCAL_STORAGE_PATH,
+    localPublicUrl: env.LOCAL_STORAGE_PUBLIC_URL,
   });
   fastify.decorate('r2', r2);
+
+  if (!env.R2_ACCOUNT_ID) {
+    fastify.get('/r2/*', async (req, reply) => {
+      const key = (req.params as { '*': string })['*'];
+      const filePath = path.join(env.LOCAL_STORAGE_PATH, key);
+      if (!fs.existsSync(filePath)) {
+        return reply.status(404).send({ error: 'not found' });
+      }
+      const ext = path.extname(filePath).toLowerCase();
+      const mime = ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+      return reply.type(mime).send(fs.createReadStream(filePath));
+    });
+  }
 
   fastify.addHook('onClose', async () => {
     redis.disconnect();

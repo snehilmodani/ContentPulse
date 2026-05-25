@@ -8,14 +8,23 @@ vi.mock('../../src/lib/redis-coord', () => ({
 }));
 vi.mock('../../src/adapters/dalle', () => ({
   DalleClient: vi.fn().mockImplementation(() => ({
-    generate: vi.fn().mockResolvedValue({ url: 'https://dalle.example.com/img.png', revisedPrompt: 'revised' }),
+    generate: vi.fn().mockResolvedValue({ url: 'https://dalle.example.com/img.png', revisedPrompt: 'revised', widthPx: 1792, heightPx: 1024 }),
   })),
   getDimensions: vi.fn().mockReturnValue({ width: 1280, height: 720 }),
 }));
 vi.mock('../../src/adapters/unsplash', () => ({
   UnsplashClient: vi.fn().mockImplementation(() => ({
-    search: vi.fn().mockResolvedValue({ url: 'https://unsplash.example.com/img.jpg' }),
+    search: vi.fn().mockResolvedValue({ url: 'https://unsplash.example.com/img.jpg', photographer: 'Test', source_url: 'https://unsplash.com', widthPx: 1080, heightPx: 1080 }),
   })),
+}));
+vi.mock('../../src/jobs/visual-generation/build-image-prompts', () => ({
+  buildImagePrompts: vi.fn().mockResolvedValue(
+    new Map([
+      ['thumbnail', { dallePrompt: 'a thumbnail about AI', unsplashQuery: 'artificial intelligence' }],
+      ['square_post', { dallePrompt: 'a square post about AI', unsplashQuery: 'technology' }],
+      ['story_cover', { dallePrompt: 'a story cover about AI', unsplashQuery: 'tech story' }],
+    ]),
+  ),
 }));
 
 import { processVisualGeneration } from '../../src/jobs/visual-generation/index';
@@ -26,6 +35,15 @@ import { UnsplashClient } from '../../src/adapters/unsplash';
 
 const mockPublish = vi.mocked(publishToUser);
 const mockIncrStagesDone = vi.mocked(incrStagesDone);
+
+const mockIdea = {
+  id: 'idea-1',
+  trendId: 'trend-1',
+  hookLine: 'AI is changing content creation',
+  coreArgument: 'Creators who adopt AI will outpace those who do not',
+};
+const mockTrend = { id: 'trend-1', topicName: 'AI Tools for Creators' };
+const mockProfile = { userId: 'u1', creatorPersona: 'Tech creator', toneOfVoice: ['informative', 'casual'] };
 
 function makeDb(queue: any[] = []) {
   const db = {
@@ -66,6 +84,7 @@ function makeDeps(envOverrides: Record<string, string> = {}) {
   const redis = { publish: vi.fn().mockResolvedValue(1) } as any;
   const queues = { 'notification-send': { add: vi.fn().mockResolvedValue({ id: 'nj1' }) } } as any;
   const uploadToR2 = vi.fn().mockResolvedValue('https://r2.example.com/visual.jpg');
+  const aiClient = { complete: vi.fn().mockResolvedValue({ text: '{}', inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }), defaultModel: 'claude-haiku-4.5' } as any;
   const env = {
     OPENAI_API_KEY: 'sk-test',
     UNSPLASH_ACCESS_KEY: 'unsplash-test',
@@ -74,15 +93,17 @@ function makeDeps(envOverrides: Record<string, string> = {}) {
     ...envOverrides,
   };
 
-  return { db: makeDb(), redis, queues, logger: logger as any, uploadToR2, env };
+  return { db: makeDb(), redis, aiClient, queues, logger: logger as any, uploadToR2, env };
 }
 
 const basePayload = {
   job_type: 'visual_generation' as const,
   user_id: 'u1',
   content_package_id: 'pkg-1',
+  idea_id: 'idea-1',
   trend_category: 'technology',
   visual_types: ['thumbnail' as const],
+  brand_kit: { logo_r2_key: null, primary_colors: ['#FF5733'], branding_mode: 'flexible' as const },
 };
 
 beforeEach(() => {
@@ -108,11 +129,11 @@ describe('processVisualGeneration — bypass mode', () => {
 describe('processVisualGeneration — AI path (thumbnail)', () => {
   it('calls DalleClient.generate, uploads to R2, inserts visual row', async () => {
     const deps = makeDeps();
-    // mock fetch for fetchImageBuffer inside the job
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
     }));
-    deps.db._queue = [[]]; // insert visual
+    // select: ideas, trends, domainProfiles; then insert visual
+    deps.db._queue = [[mockIdea], [mockTrend], [mockProfile], []];
 
     await processVisualGeneration(basePayload, deps);
 
@@ -132,7 +153,8 @@ describe('processVisualGeneration — Unsplash path (non-AI type)', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
     }));
-    deps.db._queue = [[]];
+    // select: ideas, trends, domainProfiles; then insert visual
+    deps.db._queue = [[mockIdea], [mockTrend], [mockProfile], []];
 
     await processVisualGeneration(payload, deps);
 
@@ -193,7 +215,8 @@ describe('processVisualGeneration — error path inserts placeholder', () => {
 
     const deps = makeDeps();
     vi.stubGlobal('fetch', vi.fn());
-    deps.db._queue = [[]]; // placeholder insert
+    // select: ideas, trends, domainProfiles; then insert placeholder
+    deps.db._queue = [[mockIdea], [mockTrend], [mockProfile], []];
 
     await processVisualGeneration(basePayload, deps);
 

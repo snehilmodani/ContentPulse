@@ -23,6 +23,8 @@ const schema = z.object({
   R2_SECRET_KEY: z.string().default(''),
   R2_BUCKET_NAME: z.string().default('contentpulse'),
   R2_PUBLIC_URL: z.string().default(''),
+  LOCAL_STORAGE_PATH: z.string().default(path.resolve(__dirname, '../../..', 'tmp', 'r2')),
+  LOCAL_STORAGE_PUBLIC_URL: z.string().default('http://localhost:3001/r2'),
 
   RESEND_API_KEY: z.string().default(''),
 

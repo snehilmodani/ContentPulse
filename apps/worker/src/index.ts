@@ -44,6 +44,8 @@ const r2 = new R2StorageClient({
   secretKey: workerEnv.R2_SECRET_KEY,
   bucketName: workerEnv.R2_BUCKET_NAME,
   publicUrl: workerEnv.R2_PUBLIC_URL,
+  localRoot: workerEnv.LOCAL_STORAGE_PATH,
+  localPublicUrl: workerEnv.LOCAL_STORAGE_PUBLIC_URL,
 });
 
 const workers = [
@@ -67,12 +69,19 @@ const workers = [
     processVisualGeneration(job.data, {
       db,
       redis,
+      aiClient,
       queues,
       logger,
       env: workerEnv,
       uploadToR2: async (key, url) => {
-        const resp = await fetch(url);
-        const buf = Buffer.from(await resp.arrayBuffer());
+        let buf: Buffer;
+        if (url.startsWith('data:')) {
+          const comma = url.indexOf(',');
+          buf = Buffer.from(url.slice(comma + 1), 'base64');
+        } else {
+          const resp = await fetch(url);
+          buf = Buffer.from(await resp.arrayBuffer());
+        }
         return r2.upload(key, buf, 'image/jpeg');
       },
     }), logger,
@@ -101,11 +110,18 @@ const workers = [
     processVisualRegeneration(job.data, {
       db,
       redis,
+      aiClient,
       logger,
       env: workerEnv,
       uploadToR2: async (key, url) => {
-        const resp = await fetch(url);
-        const buf = Buffer.from(await resp.arrayBuffer());
+        let buf: Buffer;
+        if (url.startsWith('data:')) {
+          const comma = url.indexOf(',');
+          buf = Buffer.from(url.slice(comma + 1), 'base64');
+        } else {
+          const resp = await fetch(url);
+          buf = Buffer.from(await resp.arrayBuffer());
+        }
         return r2.upload(key, buf, 'image/jpeg');
       },
     }), logger,

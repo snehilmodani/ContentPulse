@@ -13,17 +13,22 @@ interface R2Config {
   secretKey: string;
   bucketName: string;
   publicUrl: string;
+  localRoot: string;
+  localPublicUrl: string;
 }
 
 export class R2StorageClient {
   private readonly s3: S3Client | null;
   private readonly bucketName: string;
   private readonly publicUrl: string;
-  private readonly localRoot = path.join(process.cwd(), 'tmp', 'r2');
+  private readonly localRoot: string;
+  private readonly localPublicUrl: string;
 
   constructor(config: R2Config) {
     this.bucketName = config.bucketName;
     this.publicUrl = config.publicUrl;
+    this.localRoot = config.localRoot;
+    this.localPublicUrl = config.localPublicUrl;
 
     if (config.accountId && config.accessKeyId && config.secretKey) {
       this.s3 = new S3Client({
@@ -45,7 +50,7 @@ export class R2StorageClient {
       const filePath = path.join(this.localRoot, key);
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, body);
-      return `file://${filePath}`;
+      return `${this.localPublicUrl}/${key}`;
     }
 
     await this.s3.send(
@@ -62,7 +67,7 @@ export class R2StorageClient {
 
   async getSignedDownloadUrl(key: string, expiresInSeconds = 86400): Promise<string> {
     if (!this.s3) {
-      return `file://${path.join(this.localRoot, key)}`;
+      return `${this.localPublicUrl}/${key}`;
     }
 
     return getSignedUrl(

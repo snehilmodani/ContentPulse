@@ -8,9 +8,11 @@ vi.mock('p-retry', () => ({
 
 import { UnsplashClient } from '../../src/adapters/unsplash';
 
+const mockLogger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as any;
+
 describe('UnsplashClient — stub mode (no access key)', () => {
   it('returns picsum URL with photographer "Lorem Picsum"', async () => {
-    const client = new UnsplashClient('');
+    const client = new UnsplashClient('', mockLogger);
     const result = await client.search('sunset photography');
     expect(result.url).toContain('picsum.photos');
     expect(result.photographer).toBe('Lorem Picsum');
@@ -18,7 +20,7 @@ describe('UnsplashClient — stub mode (no access key)', () => {
   });
 
   it('encodes the query in the picsum seed URL', async () => {
-    const client = new UnsplashClient('');
+    const client = new UnsplashClient('', mockLogger);
     const result = await client.search('nature walks');
     expect(result.url).toContain(encodeURIComponent('nature walks'));
   });
@@ -51,7 +53,7 @@ describe('UnsplashClient — real mode (with access key)', () => {
         }),
     });
 
-    const client = new UnsplashClient('access-key-123');
+    const client = new UnsplashClient('access-key-123', mockLogger);
     const result = await client.search('mountain landscape');
 
     const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit];
@@ -68,13 +70,13 @@ describe('UnsplashClient — real mode (with access key)', () => {
       ok: true,
       json: () => Promise.resolve({ results: [] }),
     });
-    const client = new UnsplashClient('access-key-123');
+    const client = new UnsplashClient('access-key-123', mockLogger);
     await expect(client.search('very obscure query')).rejects.toThrow('No Unsplash result');
   });
 
   it('throws when API returns a non-ok status', async () => {
     fetchSpy.mockResolvedValue({ ok: false, status: 403 });
-    const client = new UnsplashClient('access-key-123');
+    const client = new UnsplashClient('access-key-123', mockLogger);
     await expect(client.search('anything')).rejects.toThrow('403');
   });
 });

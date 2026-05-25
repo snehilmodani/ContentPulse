@@ -16,7 +16,7 @@ const schema = z.object({
 
   AI_MODEL_GENERATION: z.string().default('anthropic/claude-haiku-4.5'),
   AI_MODEL_RESEARCH: z.string().default('anthropic/claude-haiku-4.5'),
-  AI_MODEL_VISUAL: z.string().default('dall-e-3'),
+  AI_MODEL_VISUAL: z.string().default('google/gemini-3.1-flash-image-preview'),
 
   X_API_BEARER_TOKEN: z.string().default(''),
   NEWSAPI_KEY: z.string().default(''),
@@ -33,6 +33,8 @@ const schema = z.object({
   R2_SECRET_KEY: z.string().default(''),
   R2_BUCKET_NAME: z.string().default('contentpulse'),
   R2_PUBLIC_URL: z.string().default(''),
+  LOCAL_STORAGE_PATH: z.string().default(path.resolve(__dirname, '../../..', 'tmp', 'r2')),
+  LOCAL_STORAGE_PUBLIC_URL: z.string().default('http://localhost:3001/r2'),
 
   RESEND_API_KEY: z.string().default(''),
 
