@@ -72,7 +72,7 @@ describe('GET /content-packages/:packageId', () => {
   afterEach(async () => { await app.close(); vi.clearAllMocks(); });
 
   it('returns package with draft_count and visual_count', async () => {
-    db.enqueue([mockContentPackage]);
+    db.enqueue([{ pkg: mockContentPackage, hookLine: mockIdea.hookLine, coreArgument: mockIdea.coreArgument }]);
     db.enqueue([{ draftCount: 3 }]);
     db.enqueue([{ visualCount: 2 }]);
     const token = makeToken(app);
