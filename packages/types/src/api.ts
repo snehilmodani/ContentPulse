@@ -240,6 +240,8 @@ export interface DeferIdeaResponse {
 export interface ContentPackageResponse {
   id: string;
   idea_id: string;
+  hook_line: string | null;
+  core_argument: string | null;
   user_id: string;
   status: PackageStatus;
   selected_formats: DraftFormat[];

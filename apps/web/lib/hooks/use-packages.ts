@@ -57,12 +57,15 @@ export function usePackageDrafts(packageId: string, pollWhileDrafting = false) {
   });
 }
 
-export function usePackageVisuals(packageId: string, pollWhileDrafting = false) {
+const TERMINAL_PKG_STATUSES = new Set(['ready', 'approved', 'exported']);
+
+export function usePackageVisuals(packageId: string, pollWhileDrafting = false, packageStatus?: string) {
   return useQuery<PackageVisualsResponse>({
     queryKey: ['packages', packageId, 'visuals'],
     queryFn: () => apiFetch<PackageVisualsResponse>(`/content-packages/${packageId}/visuals`),
     enabled: !!packageId,
     refetchInterval: (query) => {
+      if (packageStatus && TERMINAL_PKG_STATUSES.has(packageStatus)) return false;
       if (pollWhileDrafting) return 3000;
       const stillWorking = query.state.data?.data?.some(
         (v) => v.status === 'generating' || v.status === 'regenerating',

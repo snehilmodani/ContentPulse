@@ -319,7 +319,7 @@ export default function PackagePage() {
   const { data: pkg, isLoading: pkgLoading } = usePackage(packageId);
   const isDrafting = pkg?.status === 'drafting';
   const { data: draftsData, isLoading: draftsLoading } = usePackageDrafts(packageId, isDrafting);
-  const { data: visualsData } = usePackageVisuals(packageId, isDrafting);
+  const { data: visualsData } = usePackageVisuals(packageId, isDrafting, pkg?.status);
   const pkgStatus = pkg?.status ?? 'pending';
   const { data: brief } = usePackageBrief(packageId, BRIEF_VISIBLE.has(pkgStatus));
   const exportPackage = useExportPackage();
@@ -356,15 +356,40 @@ export default function PackagePage() {
     rejected: 'Generation failed',
   };
 
+  const STATUS_CHIP_CLASS: Record<string, string> = {
+    pending:    'border-transparent bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+    researching:'border-transparent bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+    drafting:   'border-transparent bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300',
+    ready:      'border-transparent bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+    approved:   'border-transparent bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+    exported:   'border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+    rejected:   'border-transparent bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Content Package</h1>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Content Package</p>
           {pkgLoading ? (
-            <Skeleton className="h-5 w-40 mt-1" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-8 w-72" />
+              <Skeleton className="h-4 w-48" />
+            </div>
           ) : (
-            <p className="text-muted-foreground">{pageSubtitle[pkgStatus]}</p>
+            <>
+              <h1 className="text-2xl font-bold leading-tight">
+                {pkg?.hook_line ?? 'Content Package'}
+              </h1>
+              {pkg?.core_argument && (
+                <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2 max-w-xl">
+                  {pkg.core_argument}
+                </p>
+              )}
+              <Badge className={cn('mt-1.5', STATUS_CHIP_CLASS[pkgStatus] ?? STATUS_CHIP_CLASS['pending'])}>
+                {pageSubtitle[pkgStatus]}
+              </Badge>
+            </>
           )}
         </div>
         {(pkgStatus === 'ready' || pkgStatus === 'approved') && (

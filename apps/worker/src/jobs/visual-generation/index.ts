@@ -200,17 +200,7 @@ export async function processVisualGeneration(
         logger.info({ userId: user_id, contentPackageId: content_package_id, visualType, method, r2Key: key, cdnUrl, widthPx, heightPx, duration_ms: Date.now() - visualStart }, 'Visual inserted as ready');
       } catch (err) {
         failed++;
-        const dims = getDimensions(visualType);
-        logger.error({ err, userId: user_id, contentPackageId: content_package_id, visualType, duration_ms: Date.now() - visualStart }, 'Visual generation failed — inserting placeholder with generating status');
-        await db.insert(visuals).values({
-          contentPackageId: content_package_id,
-          userId: user_id,
-          visualType,
-          widthPx: dims.width,
-          heightPx: dims.height,
-          generationMethod: 'ai_dalle',
-          status: 'generating',
-        });
+        logger.error({ err, userId: user_id, contentPackageId: content_package_id, visualType, duration_ms: Date.now() - visualStart }, 'Visual generation failed — skipping placeholder insert');
       }
     }
 

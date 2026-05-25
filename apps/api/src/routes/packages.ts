@@ -39,9 +39,14 @@ export async function packageRoutes(fastify: FastifyInstance & { db: Db }) {
     '/content-packages/:packageId',
     { preHandler: fastify.authenticate },
     async (request, reply) => {
-      const [pkg] = await fastify.db
-        .select()
+      const [row] = await fastify.db
+        .select({
+          pkg: contentPackages,
+          hookLine: ideas.hookLine,
+          coreArgument: ideas.coreArgument,
+        })
         .from(contentPackages)
+        .leftJoin(ideas, eq(contentPackages.ideaId, ideas.id))
         .where(
           and(
             eq(contentPackages.id, request.params.packageId),
@@ -50,7 +55,8 @@ export async function packageRoutes(fastify: FastifyInstance & { db: Db }) {
         )
         .limit(1);
 
-      if (!pkg) throw notFound('ContentPackage', request.params.packageId);
+      if (!row) throw notFound('ContentPackage', request.params.packageId);
+      const { pkg, hookLine, coreArgument } = row;
 
       const draftCountRows = await fastify.db.select({ draftCount: count() }).from(drafts).where(eq(drafts.contentPackageId, pkg.id));
       const draftCount = draftCountRows[0]?.draftCount ?? 0;
@@ -61,6 +67,8 @@ export async function packageRoutes(fastify: FastifyInstance & { db: Db }) {
       return reply.send({
         id: pkg.id,
         idea_id: pkg.ideaId,
+        hook_line: hookLine ?? null,
+        core_argument: coreArgument ?? null,
         user_id: pkg.userId,
         status: pkg.status,
         selected_formats: pkg.selectedFormats,
