@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { CheckCircle, XCircle, RefreshCw, Download, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import type { DraftFormat, DraftResponse, TopicBriefResponse, VisualResponse, VisualType } from '@contentpulse/types';
 import { DraftPreview } from './draft-preview';
+import { VisualDetailDialog } from './visual-detail-dialog';
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   draft: 'secondary',
@@ -197,7 +198,7 @@ function ResearchBriefCard({ brief }: { brief: TopicBriefResponse }) {
 
 // ─── Draft card ─────────────────────────────────────────────────────────────
 
-function DraftCard({ draft, visual }: { draft: DraftResponse; visual?: VisualResponse }) {
+function DraftCard({ draft, visual, onOpenDetails }: { draft: DraftResponse; visual?: VisualResponse; onOpenDetails?: () => void }) {
   const [regenInstruction, setRegenInstruction] = useState('');
   const [showRegen, setShowRegen] = useState(false);
   const approveDraft = useApproveDraft();
@@ -248,7 +249,7 @@ function DraftCard({ draft, visual }: { draft: DraftResponse; visual?: VisualRes
         )}
 
         {(() => {
-          const preview = <DraftPreview format={draft.format} contentBody={draft.content_body} {...(visual ? { visual } : {})} />;
+          const preview = <DraftPreview format={draft.format} contentBody={draft.content_body} {...(visual ? { visual } : {})} {...(onOpenDetails ? { onOpenDetails } : {})} />;
           return (
             <div className="space-y-2">
               {preview ?? (
@@ -337,6 +338,7 @@ export default function PackagePage() {
     }
   }, [pkg?.status, packageId, queryClient]);
   const [showExportConfirm, setShowExportConfirm] = useState(false);
+  const [detailVisual, setDetailVisual] = useState<VisualResponse | null>(null);
 
   const drafts = (draftsData?.data ?? []).slice().sort((a, b) => a.format.localeCompare(b.format));
   const totalDrafts = drafts.length;
@@ -442,11 +444,20 @@ export default function PackagePage() {
             {drafts.map((draft) => {
               const visualType = FORMAT_TO_VISUAL_TYPE[draft.format as DraftFormat];
               const visual = visualType ? visualByType.get(visualType) : undefined;
-              return <DraftCard key={draft.id} draft={draft} {...(visual ? { visual } : {})} />;
+              return (
+                <DraftCard
+                  key={draft.id}
+                  draft={draft}
+                  {...(visual ? { visual } : {})}
+                  {...(visual ? { onOpenDetails: () => setDetailVisual(visual) } : {})}
+                />
+              );
             })}
           </div>
         )}
       </div>
+
+      <VisualDetailDialog visual={detailVisual} onClose={() => setDetailVisual(null)} />
 
       <Dialog open={showExportConfirm} onOpenChange={setShowExportConfirm}>
         <DialogContent className="max-w-md">

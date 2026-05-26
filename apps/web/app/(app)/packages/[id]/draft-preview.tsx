@@ -16,6 +16,7 @@ import {
   FileText,
   Film,
   Volume2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import type { DraftFormat, VisualResponse } from '@contentpulse/types';
 import { useMe } from '@/lib/hooks/use-auth';
@@ -237,7 +238,7 @@ type LinkedInArticleBody = {
   estimated_read_time_minutes?: number;
 };
 
-function LinkedInArticlePreview({ body, name, handle, visual }: { body: LinkedInArticleBody; name: string; handle: string; visual?: VisualResponse }) {
+function LinkedInArticlePreview({ body, name, handle, visual, onOpenDetails }: { body: LinkedInArticleBody; name: string; handle: string; visual?: VisualResponse; onOpenDetails?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const bodyText = body.body ?? '';
   const shouldTruncate = bodyText.length > 400;
@@ -250,7 +251,20 @@ function LinkedInArticlePreview({ body, name, handle, visual }: { body: LinkedIn
         label="LinkedIn Article preview"
         right={readTime != null ? `${readTime} min read` : undefined}
       />
-      {imageUrl && <img src={imageUrl} alt="" className="w-full aspect-[16/9] object-cover" />}
+      {imageUrl && (
+        <div className="relative">
+          <img src={imageUrl} alt="" className="w-full aspect-[16/9] object-cover" />
+          {onOpenDetails && (
+            <button
+              onClick={onOpenDetails}
+              className="absolute top-2 left-2 h-7 w-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center transition-colors"
+              title="Image details"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-white" />
+            </button>
+          )}
+        </div>
+      )}
       <div className="p-4 space-y-3">
         <LinkedInAuthorRow name={name} handle={handle} />
         {body.title && <h3 className="font-bold text-base leading-snug">{body.title}</h3>}
@@ -391,7 +405,7 @@ type InstagramPostBody = {
   image_brief?: string;
 };
 
-function InstagramPostPreview({ body, handle, visual }: { body: InstagramPostBody; handle: string; visual?: VisualResponse }) {
+function InstagramPostPreview({ body, handle, visual, onOpenDetails }: { body: InstagramPostBody; handle: string; visual?: VisualResponse; onOpenDetails?: () => void }) {
   const imageUrl = readyVisualUrl(visual);
   const hashtags = (body.hashtags ?? []).map((h) => (h.startsWith('#') ? h : `#${h}`));
 
@@ -417,7 +431,18 @@ function InstagramPostPreview({ body, handle, visual }: { body: InstagramPostBod
 
       {/* Image */}
       {imageUrl ? (
-        <img src={imageUrl} alt="" className="aspect-square w-full object-cover" />
+        <div className="relative">
+          <img src={imageUrl} alt="" className="aspect-square w-full object-cover" />
+          {onOpenDetails && (
+            <button
+              onClick={onOpenDetails}
+              className="absolute top-2 left-2 h-7 w-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center transition-colors"
+              title="Image details"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-white" />
+            </button>
+          )}
+        </div>
       ) : (
         <div className="aspect-square bg-muted flex flex-col items-center justify-center gap-3 p-6 relative">
           <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
@@ -465,7 +490,7 @@ type ReelScriptBody = {
   word_count?: number;
 };
 
-function ReelScriptPreview({ body, visual }: { body: ReelScriptBody; visual?: VisualResponse }) {
+function ReelScriptPreview({ body, visual, onOpenDetails }: { body: ReelScriptBody; visual?: VisualResponse; onOpenDetails?: () => void }) {
   const [idx, setIdx] = useState(0);
   const [scriptOpen, setScriptOpen] = useState(false);
   const imageUrl = readyVisualUrl(visual);
@@ -525,10 +550,19 @@ function ReelScriptPreview({ body, visual }: { body: ReelScriptBody; visual?: Vi
                 }}
               >
                 {imageUrl && <div className="absolute inset-0 bg-black/30" />}
+                {imageUrl && onOpenDetails && (
+                  <button
+                    onClick={onOpenDetails}
+                    className="absolute top-2 left-2 z-10 h-6 w-6 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center transition-colors"
+                    title="Image details"
+                  >
+                    <SlidersHorizontal className="h-3 w-3 text-white" />
+                  </button>
+                )}
                 {current && (
                   <>
                     {/* Shot chip */}
-                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full">
+                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full" style={{ left: imageUrl && onOpenDetails ? '2.25rem' : undefined }}>
                       Shot {current.shot}
                     </div>
                     {/* On-screen text */}
@@ -615,7 +649,7 @@ type BlogPostBody = {
   internal_link_suggestions?: string[];
 };
 
-function BlogPostPreview({ body, name, visual }: { body: BlogPostBody; name: string; visual?: VisualResponse }) {
+function BlogPostPreview({ body, name, visual, onOpenDetails }: { body: BlogPostBody; name: string; visual?: VisualResponse; onOpenDetails?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const bodyText = body.body ?? '';
   const shouldTruncate = bodyText.length > 500;
@@ -632,7 +666,20 @@ function BlogPostPreview({ body, name, visual }: { body: BlogPostBody; name: str
         )}
       </div>
 
-      {imageUrl && <img src={imageUrl} alt="" className="w-full aspect-[16/9] object-cover" />}
+      {imageUrl && (
+        <div className="relative">
+          <img src={imageUrl} alt="" className="w-full aspect-[16/9] object-cover" />
+          {onOpenDetails && (
+            <button
+              onClick={onOpenDetails}
+              className="absolute top-2 left-2 h-7 w-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center transition-colors"
+              title="Image details"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-white" />
+            </button>
+          )}
+        </div>
+      )}
       <div className="p-4 space-y-3">
         {/* Author row */}
         <div className="flex items-center gap-2.5">
@@ -697,10 +744,12 @@ export function DraftPreview({
   format,
   contentBody,
   visual,
+  onOpenDetails,
 }: {
   format: DraftFormat;
   contentBody: Record<string, unknown>;
   visual?: VisualResponse;
+  onOpenDetails?: () => void;
 }): JSX.Element | null {
   const { data: me } = useMe();
   const name = me?.display_name ?? 'You';
@@ -721,20 +770,21 @@ export function DraftPreview({
     return <XThreadPreview body={body as XThreadBody} name={name} handle={handle} />;
   }
   const visualProp = visual ? { visual } : {};
+  const detailsProp = onOpenDetails ? { onOpenDetails } : {};
   if (format === 'linkedin_article') {
-    return <LinkedInArticlePreview body={body as LinkedInArticleBody} name={name} handle={handle} {...visualProp} />;
+    return <LinkedInArticlePreview body={body as LinkedInArticleBody} name={name} handle={handle} {...visualProp} {...detailsProp} />;
   }
   if (format === 'linkedin_carousel') {
     return <LinkedInCarouselPreview body={body as LinkedInCarouselBody} name={name} handle={handle} />;
   }
   if (format === 'instagram_post') {
-    return <InstagramPostPreview body={body as InstagramPostBody} handle={handle} {...visualProp} />;
+    return <InstagramPostPreview body={body as InstagramPostBody} handle={handle} {...visualProp} {...detailsProp} />;
   }
   if (format === 'reel_script') {
-    return <ReelScriptPreview body={body as ReelScriptBody} {...visualProp} />;
+    return <ReelScriptPreview body={body as ReelScriptBody} {...visualProp} {...detailsProp} />;
   }
   if (format === 'blog_post') {
-    return <BlogPostPreview body={body as BlogPostBody} name={name} {...visualProp} />;
+    return <BlogPostPreview body={body as BlogPostBody} name={name} {...visualProp} {...detailsProp} />;
   }
   return null;
 }

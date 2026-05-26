@@ -37,6 +37,7 @@ export const visualGenMethodEnum = pgEnum('visual_gen_method', [
   'web_unsplash',
   'web_pexels',
   'template',
+  'user_upload',
 ]);
 
 export const visualStatusEnum = pgEnum('visual_status', [

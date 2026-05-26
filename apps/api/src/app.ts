@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import type { ApiEnv } from '@contentpulse/config';
 import { getDb } from '@contentpulse/db';
+import { AnthropicClient } from '@contentpulse/ai-client';
 import { errorHandler } from './lib/errors';
 import { R2StorageClient } from './lib/r2';
 import authPlugin from './plugins/auth';
@@ -30,6 +31,7 @@ declare module 'fastify' {
     db: ReturnType<typeof getDb>;
     redis: Redis;
     r2: R2StorageClient;
+    aiClient: AnthropicClient;
   }
 }
 
@@ -65,6 +67,9 @@ export async function buildApp(env: ApiEnv) {
     localPublicUrl: env.LOCAL_STORAGE_PUBLIC_URL,
   });
   fastify.decorate('r2', r2);
+
+  const aiClient = new AnthropicClient(env.OPENROUTER_API_KEY, redis, env.AI_MODEL_GENERATION || undefined);
+  fastify.decorate('aiClient', aiClient);
 
   if (!env.R2_ACCOUNT_ID) {
     fastify.get('/r2/*', async (req, reply) => {

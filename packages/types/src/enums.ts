@@ -17,7 +17,7 @@ export type VisualType =
   | 'carousel_slide'
   | 'x_header';
 
-export type VisualGenMethod = 'ai_dalle' | 'web_unsplash' | 'web_pexels' | 'template';
+export type VisualGenMethod = 'ai_dalle' | 'web_unsplash' | 'web_pexels' | 'template' | 'user_upload';
 
 export type VisualStatus = 'generating' | 'ready' | 'approved' | 'regenerating';
 

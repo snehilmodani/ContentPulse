@@ -1,0 +1,1 @@
+ALTER TYPE "visual_gen_method" ADD VALUE 'user_upload';

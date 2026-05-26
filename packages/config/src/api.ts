@@ -17,6 +17,8 @@ const schema = z.object({
 
   ANTHROPIC_API_KEY: z.string().default(''),
   OPENAI_API_KEY: z.string().default(''),
+  OPENROUTER_API_KEY: z.string().default(''),
+  AI_MODEL_GENERATION: z.string().default(''),
 
   R2_ACCOUNT_ID: z.string().default(''),
   R2_ACCESS_KEY_ID: z.string().default(''),

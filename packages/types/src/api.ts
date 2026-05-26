@@ -378,6 +378,10 @@ export interface RegenerateVisualResponse {
   job_id: string;
 }
 
+export interface GenerateExternalPromptResponse {
+  prompt: string;
+}
+
 // ─── Export ───────────────────────────────────────────────────────────────────
 
 export interface ExportResponse {

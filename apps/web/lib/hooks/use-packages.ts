@@ -1,12 +1,13 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from '../api-client';
+import { apiFetch, apiUpload } from '../api-client';
 import type {
   ApproveDraftResponse,
   ContentPackageResponse,
   DraftResponse,
   ExportResponse,
+  GenerateExternalPromptResponse,
   PackageVisualsResponse,
   RegenerateDraftBody,
   RegenerateDraftResponse,
@@ -14,6 +15,7 @@ import type {
   RegenerateVisualResponse,
   RejectDraftResponse,
   TopicBriefResponse,
+  VisualResponse,
 } from '@contentpulse/types';
 
 export function usePackagesList() {
@@ -120,6 +122,25 @@ export function useRegenerateVisual() {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['packages'] }),
+  });
+}
+
+export function useGenerateExternalPrompt() {
+  return useMutation({
+    mutationFn: (visualId: string) =>
+      apiFetch<GenerateExternalPromptResponse>(`/visuals/${visualId}/prompt`, { method: 'POST' }),
+  });
+}
+
+export function useUploadVisual() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ visualId, file }: { visualId: string; file: File }) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return apiUpload<VisualResponse>(`/visuals/${visualId}/upload`, fd);
+    },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['packages'] }),
   });
 }
