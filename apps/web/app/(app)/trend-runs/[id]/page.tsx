@@ -7,7 +7,7 @@ import {
   useTrendRun, useTrendRunIdeas, useIdea,
   useApproveIdea, useRejectIdea, useDeferIdea, useUpdateIdea,
 } from '@/lib/hooks/use-ideas';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -91,11 +91,6 @@ function IdeaCard({ idea, onOpen }: { idea: IdeaListItem; onOpen: () => void }) 
             <CardTitle className="text-base leading-snug">{idea.hook_line}</CardTitle>
           </div>
         </div>
-        {idea.trend && (
-          <CardDescription className="text-xs">
-            Trend: {idea.trend.topic_name} · {idea.trend.source_platform}
-          </CardDescription>
-        )}
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2 flex-wrap mb-4">
@@ -337,10 +332,18 @@ export default function TrendRunIdeasPage() {
   const { data: run, isLoading: runLoading } = useTrendRun(runId);
   const { data: ideasData, isLoading: ideasLoading } = useTrendRunIdeas(runId);
   const [openIdeaId, setOpenIdeaId] = useState<string | null>(null);
+  const rejectIdea = useRejectIdea();
 
   const ideas = ideasData?.data ?? [];
   const totalIdeaCount = run?.idea_count ?? ideasData?.meta?.total ?? ideas.length;
   const pendingCount = run?.pending_idea_count ?? ideas.filter((i) => i.status === 'pending').length;
+
+  const handleRejectTrend = async (trendIdeas: IdeaListItem[]) => {
+    const pending = trendIdeas.filter((i) => i.status === 'pending');
+    if (pending.length === 0) return;
+    if (!window.confirm(`Reject ${pending.length} pending idea${pending.length !== 1 ? 's' : ''} for this trend?`)) return;
+    await Promise.all(pending.map((i) => rejectIdea.mutateAsync({ ideaId: i.id })));
+  };
 
   return (
     <div className="space-y-6">
@@ -385,13 +388,49 @@ export default function TrendRunIdeasPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {ideas.map((idea) => (
-            <IdeaCard
-              key={idea.id}
-              idea={idea}
-              onOpen={() => setOpenIdeaId(idea.id)}
-            />
+        <div className="space-y-8">
+          {Array.from(
+            ideas.reduce((map, idea) => {
+              const key = idea.trend?.id ?? '__no_trend__';
+              if (!map.has(key)) map.set(key, { trend: idea.trend, ideas: [] });
+              map.get(key)!.ideas.push(idea);
+              return map;
+            }, new Map<string, { trend: IdeaListItem['trend']; ideas: IdeaListItem[] }>()),
+          ).map(([key, { trend, ideas: trendIdeas }]) => (
+            <div key={key} className="space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-lg font-semibold">{trend?.topic_name ?? 'Untagged'}</h2>
+                {trend && (
+                  <span className="text-xs text-muted-foreground">
+                    {trend.category?.replace(/_/g, ' ')} · {trend.source_platform} · score {parseFloat(trend.composite_score).toFixed(0)}
+                  </span>
+                )}
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {trendIdeas.length} idea{trendIdeas.length !== 1 ? 's' : ''}
+                </span>
+                {trendIdeas.filter((i) => i.status === 'pending').length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleRejectTrend(trendIdeas)}
+                    disabled={rejectIdea.isPending}
+                  >
+                    <XCircle className="h-3 w-3" />
+                    Reject {trendIdeas.filter((i) => i.status === 'pending').length}
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {trendIdeas.map((idea) => (
+                  <IdeaCard
+                    key={idea.id}
+                    idea={idea}
+                    onOpen={() => setOpenIdeaId(idea.id)}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
