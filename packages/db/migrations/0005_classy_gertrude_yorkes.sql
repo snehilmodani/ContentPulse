@@ -1,0 +1,1 @@
+ALTER TABLE "domain_profiles" ADD COLUMN "blacklisted_topics" text[] DEFAULT '{}'::text[] NOT NULL;

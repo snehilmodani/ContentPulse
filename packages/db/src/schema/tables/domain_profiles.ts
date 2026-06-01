@@ -17,6 +17,7 @@ export const domainProfiles = pgTable(
     contentMixRatio: jsonb('content_mix_ratio').notNull().default({}),
     region: text('region').notNull().default('IN-MH'),
     inspirationAccounts: text('inspiration_accounts').array().notNull().default(sql`'{}'::text[]`),
+    blacklistedTopics: text('blacklisted_topics').array().notNull().default(sql`'{}'::text[]`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

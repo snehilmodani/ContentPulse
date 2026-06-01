@@ -150,6 +150,7 @@ describe('processIdeaGeneration — no trends', () => {
     const deps = makeDeps();
     // top trends query returns empty
     (deps.db as any)._queue = [
+      [{ blacklist: [] }],      // domain profile select (blacklist lookup)
       [],                       // topTrends select
       [{ id: 'notif-1' }],      // notification insert returning
     ];
@@ -170,6 +171,7 @@ describe('processIdeaGeneration — with trends', () => {
     const trend = { id: 't1', topicName: 'AI', category: 'tech', compositeScore: '90' };
     const deps = makeDeps();
     (deps.db as any)._queue = [
+      [{ blacklist: [] }],       // domain profile select (blacklist lookup)
       [trend],                   // topTrends
       [],                        // insert ideas (no returning needed)
       [{ id: 'notif-1' }],       // notification insert
@@ -190,6 +192,7 @@ describe('processIdeaGeneration — with trends', () => {
     const trend2 = { id: 't2', topicName: 'Web3', category: 'crypto', compositeScore: '85' };
     const deps = makeDeps();
     (deps.db as any)._queue = [
+      [{ blacklist: [] }],   // domain profile select (blacklist lookup)
       [trend1, trend2],
       [],                    // ideas for trend2 (trend1 fails)
       [{ id: 'notif-1' }],
@@ -209,10 +212,61 @@ describe('processIdeaGeneration — with trends', () => {
   });
 });
 
+describe('processIdeaGeneration — blacklist filtering', () => {
+  it('skips AI call for trends filtered by NOT ILIKE conditions', async () => {
+    // The mock db simply dequeues in order; the actual SQL NOT ILIKE filtering
+    // happens at the DB level. Here we verify that when the db returns zero trends
+    // (simulating all trends being filtered out), no AI call is made.
+    const deps = makeDeps();
+    (deps.db as any)._queue = [
+      [{ blacklist: ['crypto', 'bitcoin'] }],  // domain profile with blacklisted terms
+      [],                                       // topTrends (all filtered by DB)
+      [{ id: 'notif-1' }],
+    ];
+
+    await processIdeaGeneration(basePayload, deps);
+
+    expect(deps.aiClient.complete).not.toHaveBeenCalled();
+    // blacklistCount appears on the "Fetched top trends" info log
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1', blacklistCount: 2 }),
+      expect.stringContaining('Fetched top trends'),
+    );
+    // the no-trends warning fires because topTrends is empty
+    expect(deps.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1' }),
+      expect.stringContaining('No trends'),
+    );
+  });
+
+  it('passes blacklistCount in the top-trends log when profile has no terms', async () => {
+    const trend = { id: 't1', topicName: 'AI Strategy', category: 'tech', compositeScore: '90' };
+    const deps = makeDeps();
+    (deps.db as any)._queue = [
+      [{ blacklist: [] }],   // empty blacklist
+      [trend],
+      [],
+      [{ id: 'notif-2' }],
+    ];
+    deps.aiClient.complete = vi.fn().mockResolvedValue({
+      text: JSON.stringify([{ angle_type: 'news', hook_line: 'H', core_argument: 'A', platform_fit: [] }]),
+      inputTokens: 5, outputTokens: 10, cacheReadTokens: 0, cacheCreationTokens: 0,
+    });
+
+    await processIdeaGeneration(basePayload, deps);
+
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1', blacklistCount: 0 }),
+      expect.stringContaining('Fetched top trends'),
+    );
+  });
+});
+
 describe('processIdeaGeneration — notification', () => {
   it('inserts daily_digest_ready notification and enqueues notification-send', async () => {
     const deps = makeDeps();
     (deps.db as any)._queue = [
+      [{ blacklist: [] }],      // domain profile select (blacklist lookup)
       [],                       // no trends
       [{ id: 'notif-99' }],     // notification insert
     ];

@@ -23,6 +23,7 @@ function toDomainProfileResponse(dp: typeof domainProfiles.$inferSelect): Domain
     content_mix_ratio: (dp.contentMixRatio as Record<string, number>) ?? {},
     region: dp.region,
     inspiration_accounts: dp.inspirationAccounts ?? [],
+    blacklisted_topics: dp.blacklistedTopics ?? [],
     updated_at: dp.updatedAt.toISOString(),
   };
 }
@@ -83,6 +84,7 @@ export async function userRoutes(
           toneOfVoice: body.tone_of_voice ?? [],
           contentMixRatio: body.content_mix_ratio ?? {},
           inspirationAccounts: body.inspiration_accounts ?? [],
+          blacklistedTopics: body.blacklisted_topics ?? [],
           ...optionalDpFields,
         })
         .onConflictDoUpdate({
@@ -93,6 +95,7 @@ export async function userRoutes(
             toneOfVoice: body.tone_of_voice ?? [],
             contentMixRatio: body.content_mix_ratio ?? {},
             inspirationAccounts: body.inspiration_accounts ?? [],
+            blacklistedTopics: body.blacklisted_topics ?? [],
             updatedAt: new Date(),
             ...optionalDpFields,
           },

@@ -2,9 +2,9 @@ import type { Redis } from 'ioredis';
 import type { Logger } from 'pino';
 import type { AnthropicClient } from '@contentpulse/ai-client';
 import type { Db } from '@contentpulse/db';
-import { ideas, notifications, trends } from '@contentpulse/db';
+import { domainProfiles, ideas, notifications, trends } from '@contentpulse/db';
 import type { IdeaGenerationJobPayload } from '@contentpulse/types';
-import { eq, desc } from 'drizzle-orm';
+import { and, desc, eq, notIlike } from 'drizzle-orm';
 import type { Queue } from 'bullmq';
 import type { JobPayload } from '@contentpulse/types';
 import { publishToUser } from '../../lib/ws-publish';
@@ -86,15 +86,31 @@ export async function processIdeaGeneration(
     timestamp: new Date().toISOString(),
   });
 
-  // take top 10 trends by composite_score
+  // Fetch the user's blacklisted topic phrases (empty array if no profile yet)
+  const [profile] = await db
+    .select({ blacklist: domainProfiles.blacklistedTopics })
+    .from(domainProfiles)
+    .where(eq(domainProfiles.userId, user_id))
+    .limit(1);
+  const blacklist = profile?.blacklist ?? [];
+
+  // Build WHERE conditions: always scoped to this run, plus NOT ILIKE for each blacklisted phrase
+  // (filter before limit so we still get up to 10 non-blacklisted trends)
+  const conditions = [eq(trends.trendRunId, trend_run_id)];
+  for (const term of blacklist) {
+    const esc = term.replace(/[%_\\]/g, (c) => `\\${c}`); // escape LIKE wildcards
+    conditions.push(notIlike(trends.topicName, `%${esc}%`));
+  }
+
+  // take top 10 trends by composite_score, excluding blacklisted topics
   const topTrends = await db
     .select()
     .from(trends)
-    .where(eq(trends.trendRunId, trend_run_id))
+    .where(and(...conditions))
     .orderBy(desc(trends.compositeScore))
     .limit(10);
 
-  logger.info({ userId: user_id, trendRunId: trend_run_id, trendCount: topTrends.length }, 'Fetched top trends for idea generation');
+  logger.info({ userId: user_id, trendRunId: trend_run_id, trendCount: topTrends.length, blacklistCount: blacklist.length }, 'Fetched top trends for idea generation');
 
   if (topTrends.length === 0) {
     logger.warn({ userId: user_id, trendRunId: trend_run_id }, 'No trends found for this run — idea generation will produce no ideas');

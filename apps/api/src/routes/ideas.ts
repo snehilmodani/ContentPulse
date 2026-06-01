@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Db } from '@contentpulse/db';
-import { contentPackages, ideas, trends } from '@contentpulse/db';
+import { contentPackages, domainProfiles, ideas, trends } from '@contentpulse/db';
 import type { PublishedPlatform, RejectIdeaBody, ResearchBriefJobPayload, UpdateIdeaBody } from '@contentpulse/types';
 import { badRequest, notFound } from '../lib/errors';
 import type { Redis } from 'ioredis';
@@ -186,6 +186,22 @@ export async function ideaRoutes(
         .update(ideas)
         .set({ status: 'rejected', updatedAt: new Date(), ...(request.body?.reason !== undefined ? { rejectionReason: request.body.reason } : {}) })
         .where(eq(ideas.id, idea.id));
+
+      // If the user opted to blacklist the topic, append to their domain profile
+      // (guarded: no-op if already present or if no profile row exists yet)
+      const blacklistTerm = request.body?.blacklist_term?.trim();
+      if (blacklistTerm) {
+        await fastify.db
+          .update(domainProfiles)
+          .set({
+            blacklistedTopics: sql`array_append(${domainProfiles.blacklistedTopics}, ${blacklistTerm})`,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(domainProfiles.userId, request.user.id),
+            sql`NOT (${blacklistTerm} = ANY(${domainProfiles.blacklistedTopics}))`,
+          ));
+      }
 
       return reply.send({ idea_id: idea.id, status: 'rejected' });
     },

@@ -8,11 +8,12 @@ import {
   useApproveIdea, useRejectIdea, useDeferIdea, useUpdateIdea,
 } from '@/lib/hooks/use-ideas';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, CheckCircle, XCircle, Clock, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -112,6 +113,94 @@ function IdeaCard({ idea, onOpen }: { idea: IdeaListItem; onOpen: () => void }) 
   );
 }
 
+// ---------------------------------------------------------------------------
+// Reject confirmation dialog — shared by single-idea and per-trend bulk reject
+// ---------------------------------------------------------------------------
+
+interface RejectConfirmDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Human-readable title for the reject action */
+  title: string;
+  /** Pre-fills the blacklist input; shown only when the checkbox is ticked */
+  topicName: string;
+  /** Called when the user confirms; receives the blacklist term (or undefined if not ticked) */
+  onConfirm: (blacklistTerm?: string) => Promise<void>;
+  isPending: boolean;
+}
+
+function RejectConfirmDialog({ open, onOpenChange, title, topicName, onConfirm, isPending }: RejectConfirmDialogProps) {
+  const [addToBlacklist, setAddToBlacklist] = useState(false);
+  const [term, setTerm] = useState('');
+
+  // Reset internal state each time the dialog opens
+  useEffect(() => {
+    if (open) {
+      setAddToBlacklist(false);
+      setTerm(topicName);
+    }
+  }, [open, topicName]);
+
+  const handleConfirm = async () => {
+    await onConfirm(addToBlacklist && term.trim() ? term.trim() : undefined);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            This cannot be undone. Rejected ideas are hidden from your pipeline.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          <label className="flex items-start gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-destructive"
+              checked={addToBlacklist}
+              onChange={(e) => setAddToBlacklist(e.target.checked)}
+            />
+            <span className="text-sm leading-snug">
+              Also add this topic to my blacklist
+              <span className="block text-xs text-muted-foreground">Skip it in future trend runs</span>
+            </span>
+          </label>
+
+          {addToBlacklist && (
+            <div className="space-y-1.5">
+              <Label htmlFor="blacklist-term" className="text-xs">Topic phrase to block</Label>
+              <Input
+                id="blacklist-term"
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+                placeholder="e.g., Bitcoin, crypto"
+                maxLength={120}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Future trends containing this phrase won&apos;t generate ideas.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button size="sm" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button size="sm" variant="destructive" onClick={handleConfirm} disabled={isPending}>
+            {isPending ? 'Rejecting…' : 'Reject'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: () => void }) {
   const { data: idea, isLoading } = useIdea(ideaId);
   const approveIdea = useApproveIdea();
@@ -123,6 +212,7 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
   const [editHook, setEditHook] = useState('');
   const [editArgument, setEditArgument] = useState('');
   const [editPlatforms, setEditPlatforms] = useState<PublishedPlatform[]>([]);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
 
   // Reset edit state when modal closes or idea changes
   useEffect(() => {
@@ -180,9 +270,9 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
     handleClose();
   };
 
-  const handleReject = async () => {
+  const handleRejectConfirmed = async (blacklistTerm?: string) => {
     if (!idea) return;
-    await rejectIdea.mutateAsync({ ideaId: idea.id });
+    await rejectIdea.mutateAsync({ ideaId: idea.id, ...(blacklistTerm !== undefined ? { blacklistTerm } : {}) });
     handleClose();
   };
 
@@ -305,7 +395,7 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
               </DialogFooter>
             ) : isPending ? (
               <DialogFooter className="gap-2 sm:gap-2">
-                <Button size="sm" variant="destructive" onClick={handleReject} disabled={isActionPending} className="gap-1">
+                <Button size="sm" variant="destructive" onClick={() => setRejectDialogOpen(true)} disabled={isActionPending} className="gap-1">
                   <XCircle className="h-3 w-3" />
                   Reject
                 </Button>
@@ -322,6 +412,15 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
           </>
         )}
       </DialogContent>
+
+      <RejectConfirmDialog
+        open={rejectDialogOpen}
+        onOpenChange={setRejectDialogOpen}
+        title="Reject idea"
+        topicName={idea?.trend?.topic_name ?? ''}
+        onConfirm={handleRejectConfirmed}
+        isPending={rejectIdea.isPending}
+      />
     </Dialog>
   );
 }
@@ -334,15 +433,26 @@ export default function TrendRunIdeasPage() {
   const [openIdeaId, setOpenIdeaId] = useState<string | null>(null);
   const rejectIdea = useRejectIdea();
 
+  // State for the bulk per-trend reject confirmation dialog
+  const [bulkRejectTarget, setBulkRejectTarget] = useState<{ ideas: IdeaListItem[]; topicName: string } | null>(null);
+
   const ideas = ideasData?.data ?? [];
   const totalIdeaCount = run?.idea_count ?? ideasData?.meta?.total ?? ideas.length;
   const pendingCount = run?.pending_idea_count ?? ideas.filter((i) => i.status === 'pending').length;
 
-  const handleRejectTrend = async (trendIdeas: IdeaListItem[]) => {
+  const handleRejectTrend = (trendIdeas: IdeaListItem[], topicName: string) => {
     const pending = trendIdeas.filter((i) => i.status === 'pending');
     if (pending.length === 0) return;
-    if (!window.confirm(`Reject ${pending.length} pending idea${pending.length !== 1 ? 's' : ''} for this trend?`)) return;
-    await Promise.all(pending.map((i) => rejectIdea.mutateAsync({ ideaId: i.id })));
+    setBulkRejectTarget({ ideas: pending, topicName });
+  };
+
+  const handleBulkRejectConfirmed = async (blacklistTerm?: string) => {
+    if (!bulkRejectTarget) return;
+    // Send blacklist_term on the first reject only; server dedupes with onConflictDoNothing
+    const [first, ...rest] = bulkRejectTarget.ideas;
+    if (first) await rejectIdea.mutateAsync({ ideaId: first.id, ...(blacklistTerm !== undefined ? { blacklistTerm } : {}) });
+    await Promise.all(rest.map((i) => rejectIdea.mutateAsync({ ideaId: i.id })));
+    setBulkRejectTarget(null);
   };
 
   return (
@@ -413,7 +523,7 @@ export default function TrendRunIdeasPage() {
                     size="sm"
                     variant="ghost"
                     className="h-7 px-2 gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleRejectTrend(trendIdeas)}
+                    onClick={() => handleRejectTrend(trendIdeas, trend?.topic_name ?? '')}
                     disabled={rejectIdea.isPending}
                   >
                     <XCircle className="h-3 w-3" />
@@ -438,6 +548,20 @@ export default function TrendRunIdeasPage() {
       <IdeaDetailModal
         ideaId={openIdeaId}
         onClose={() => setOpenIdeaId(null)}
+      />
+
+      {/* Bulk per-trend reject dialog */}
+      <RejectConfirmDialog
+        open={!!bulkRejectTarget}
+        onOpenChange={(open) => { if (!open) setBulkRejectTarget(null); }}
+        title={
+          bulkRejectTarget
+            ? `Reject ${bulkRejectTarget.ideas.length} idea${bulkRejectTarget.ideas.length !== 1 ? 's' : ''}`
+            : 'Reject ideas'
+        }
+        topicName={bulkRejectTarget?.topicName ?? ''}
+        onConfirm={handleBulkRejectConfirmed}
+        isPending={rejectIdea.isPending}
       />
     </div>
   );

@@ -84,14 +84,18 @@ export function useApproveIdea() {
 export function useRejectIdea() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ ideaId, reason }: { ideaId: string; reason?: string }) =>
+    mutationFn: ({ ideaId, reason, blacklistTerm }: { ideaId: string; reason?: string; blacklistTerm?: string }) =>
       apiFetch<RejectIdeaResponse>(`/ideas/${ideaId}/reject`, {
         method: 'POST',
-        body: JSON.stringify(reason !== undefined ? { reason } : {}),
+        body: JSON.stringify({
+          ...(reason !== undefined ? { reason } : {}),
+          ...(blacklistTerm !== undefined ? { blacklist_term: blacklistTerm } : {}),
+        }),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['trend-run-ideas'] });
       void queryClient.invalidateQueries({ queryKey: ['trend-run'] });
+      void queryClient.invalidateQueries({ queryKey: ['domain-profile'] });
     },
   });
 }

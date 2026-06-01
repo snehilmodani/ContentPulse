@@ -90,6 +90,7 @@ export interface DomainProfileResponse {
   content_mix_ratio: Record<string, number>;
   region: string;
   inspiration_accounts: string[];
+  blacklisted_topics: string[];
   updated_at: string;
 }
 
@@ -102,6 +103,7 @@ export interface UpsertDomainProfileBody {
   content_mix_ratio?: Record<string, number>;
   region?: string;
   inspiration_accounts?: string[];
+  blacklisted_topics?: string[];
 }
 
 export interface CreateTrendRunBody {
@@ -217,6 +219,7 @@ export interface ApproveIdeaResponse {
 
 export interface RejectIdeaBody {
   reason?: string;
+  blacklist_term?: string;
 }
 
 export interface UpdateIdeaBody {
