@@ -99,6 +99,7 @@ export interface BuildOptions {
   queues?: QueuesMock;
   r2?: unknown;
   addJob?: ReturnType<typeof vi.fn>;
+  aiClient?: unknown;
 }
 
 export async function buildApp(db: MockDb, opts: BuildOptions = {}) {
@@ -113,6 +114,7 @@ export async function buildApp(db: MockDb, opts: BuildOptions = {}) {
   app.decorate('queues', queues as any);
   app.decorate('addJob', addJob as any);
   if (opts.r2) app.decorate('r2', opts.r2 as any);
+  if (opts.aiClient) app.decorate('aiClient', opts.aiClient as any);
   app.decorate('authenticate', async (request: any, reply: any) => {
     try {
       await request.jwtVerify();
@@ -254,6 +256,20 @@ export const mockDomainProfile = {
   contentMixRatio: { educational: 0.4, news: 0.3, opinion: 0.3 },
   region: 'IN-MH',
   inspirationAccounts: ['@techperson'],
+  blacklistedTopics: [],
+  updatedAt: new Date('2024-01-01'),
+};
+
+export const mockBrandKit = {
+  id: 'bk-1',
+  userId: USER_ID,
+  logoR2Key: null,
+  logoUrl: null,
+  primaryColors: ['#1a1a2e', '#16213e'],
+  fontPreferences: {},
+  brandingMode: 'flexible' as const,
+  extraAssets: [],
+  createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
 

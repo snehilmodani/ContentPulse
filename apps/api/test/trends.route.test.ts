@@ -2,8 +2,118 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { trendRoutes } from '../src/routes/trends';
 import {
   MockDb, buildApp, makeToken,
-  mockTrend, mockTrendRun, mockIdea,
+  mockTrend, mockTrendRun, mockIdea, mockDomainProfile,
 } from './helpers';
+
+describe('POST /trend-runs', () => {
+  let db: MockDb;
+  let app: Awaited<ReturnType<typeof buildApp>>['app'];
+  let addJob: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    db = new MockDb();
+    ({ app, addJob } = await buildApp(db));
+    await trendRoutes(app as any);
+  });
+
+  afterEach(async () => { await app.close(); vi.clearAllMocks(); });
+
+  it('returns 400 when trend_cap is out of range (> 20)', async () => {
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: '/trend-runs',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { trend_cap: 25 },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toContain('trend_cap');
+  });
+
+  it('returns 400 when trend_cap is less than 1', async () => {
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: '/trend-runs',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { trend_cap: 0 },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when domain_override.primary_domain is an empty string', async () => {
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: '/trend-runs',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { domain_override: { primary_domain: '  ' } },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toContain('primary_domain');
+  });
+
+  it('returns 404 when the user has no domain profile', async () => {
+    db.enqueue([]);  // domain profile select returns empty
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: '/trend-runs',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('creates a trend run, enqueues trend-harvesting, returns 201', async () => {
+    db.enqueue([mockDomainProfile]);
+    db.enqueue([{ id: 'run-new', status: 'pending', runDate: '2024-01-15' }]);
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: '/trend-runs',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.id).toBe('run-new');
+    expect(body.status).toBe('pending');
+    expect(addJob).toHaveBeenCalledWith(
+      'trend-harvesting',
+      expect.objectContaining({
+        job_type: 'trend_harvesting',
+        trend_run_id: 'run-new',
+        domain_profile: expect.objectContaining({
+          primary_domain: mockDomainProfile.primaryDomain,
+        }),
+      }),
+    );
+  });
+
+  it('includes trend_cap in the job payload when provided', async () => {
+    db.enqueue([mockDomainProfile]);
+    db.enqueue([{ id: 'run-cap', status: 'pending', runDate: '2024-01-15' }]);
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: '/trend-runs',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { trend_cap: 5 },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(addJob).toHaveBeenCalledWith(
+      'trend-harvesting',
+      expect.objectContaining({ trend_cap: 5 }),
+    );
+  });
+});
 
 describe('GET /trend-runs', () => {
   let db: MockDb;

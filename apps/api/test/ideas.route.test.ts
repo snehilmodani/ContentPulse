@@ -6,6 +6,108 @@ import {
   USER_ID,
 } from './helpers';
 
+describe('PATCH /ideas/:ideaId', () => {
+  let db: MockDb;
+  let app: Awaited<ReturnType<typeof buildApp>>['app'];
+
+  beforeEach(async () => {
+    db = new MockDb();
+    ({ app } = await buildApp(db));
+    await ideaRoutes(app as any);
+  });
+
+  afterEach(async () => { await app.close(); vi.clearAllMocks(); });
+
+  it('returns 404 when idea not found', async () => {
+    db.enqueue([]);
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'PATCH', url: `/ideas/${mockIdea.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { hook_line: 'New hook' },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('returns 400 when idea is not pending (e.g. approved)', async () => {
+    db.enqueue([{ ...mockIdea, status: 'approved' }]);
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'PATCH', url: `/ideas/${mockIdea.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { hook_line: 'New hook' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toContain('approved');
+  });
+
+  it('returns 400 when hook_line exceeds 280 chars', async () => {
+    db.enqueue([mockIdea]);
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'PATCH', url: `/ideas/${mockIdea.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { hook_line: 'a'.repeat(281) },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toContain('hook_line');
+  });
+
+  it('returns 400 when core_argument exceeds 2000 chars', async () => {
+    db.enqueue([mockIdea]);
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'PATCH', url: `/ideas/${mockIdea.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { core_argument: 'a'.repeat(2001) },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toContain('core_argument');
+  });
+
+  it('returns 400 when platform_fit contains an invalid value', async () => {
+    db.enqueue([mockIdea]);
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'PATCH', url: `/ideas/${mockIdea.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { platform_fit: ['x_twitter', 'snapchat'] },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toContain('snapchat');
+  });
+
+  it('updates and returns the patched idea on success', async () => {
+    db.enqueue([mockIdea]);    // idea select
+    db.enqueue([]);             // update
+    db.enqueue([mockTrend]);   // trend fetch for response
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'PATCH', url: `/ideas/${mockIdea.id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { hook_line: 'Updated hook', platform_fit: ['linkedin'] },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.id).toBe(mockIdea.id);
+    expect(body.hook_line).toBe('Updated hook');
+    expect(body.platform_fit).toEqual(['linkedin']);
+    expect(body.trend).toMatchObject({ id: mockTrend.id });
+  });
+});
+
 describe('GET /ideas/:ideaId', () => {
   let db: MockDb;
   let app: Awaited<ReturnType<typeof buildApp>>['app'];
@@ -220,6 +322,40 @@ describe('POST /ideas/:ideaId/reject', () => {
     });
 
     expect(res.statusCode).toBe(404);
+  });
+
+  it('appends blacklist_term to domain profile when provided', async () => {
+    db.enqueue([{ id: mockIdea.id, userId: USER_ID, status: 'pending' }]);
+    db.enqueue([]);  // update ideas (rejected)
+    db.enqueue([]);  // update domainProfiles (blacklist append)
+    const updateSpy = vi.spyOn(db, 'update');
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: `/ideas/${mockIdea.id}/reject`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { blacklist_term: 'crypto' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    // update called twice: once for ideas, once for domainProfiles
+    expect(updateSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not update domain profile when blacklist_term is absent', async () => {
+    db.enqueue([{ id: mockIdea.id, userId: USER_ID, status: 'pending' }]);
+    db.enqueue([]);
+    const updateSpy = vi.spyOn(db, 'update');
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: `/ideas/${mockIdea.id}/reject`,
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(updateSpy).toHaveBeenCalledTimes(1);
   });
 });
 

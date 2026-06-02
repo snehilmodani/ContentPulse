@@ -2,8 +2,94 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { visualRoutes } from '../src/routes/visuals';
 import {
   MockDb, buildApp, makeToken,
-  mockVisual, USER_ID,
+  mockVisual, mockContentPackage, mockIdea, mockTrend, mockDomainProfile, mockBrandKit,
+  USER_ID,
 } from './helpers';
+
+function makeAiClient(responseText = 'A vivid professional image prompt') {
+  return {
+    complete: vi.fn().mockResolvedValue({
+      text: responseText,
+      inputTokens: 10,
+      outputTokens: 20,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+    }),
+  };
+}
+
+describe('POST /visuals/:visualId/prompt', () => {
+  let db: MockDb;
+  let app: Awaited<ReturnType<typeof buildApp>>['app'];
+
+  beforeEach(async () => {
+    db = new MockDb();
+    ({ app } = await buildApp(db, { aiClient: makeAiClient() }));
+    await visualRoutes(app as any);
+  });
+
+  afterEach(async () => { await app.close(); vi.clearAllMocks(); });
+
+  it('returns 404 when visual not found', async () => {
+    db.enqueue([]);
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: `/visuals/${mockVisual.id}/prompt`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('returns a prompt string built from idea + trend + brand context', async () => {
+    db.enqueue([mockVisual]);          // visual
+    db.enqueue([mockContentPackage]);  // package
+    db.enqueue([mockIdea]);            // idea
+    db.enqueue([mockTrend]);           // trend
+    db.enqueue([mockDomainProfile]);   // domain profile
+    db.enqueue([mockBrandKit]);        // brand kit
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: `/visuals/${mockVisual.id}/prompt`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(typeof body.prompt).toBe('string');
+    expect(body.prompt.length).toBeGreaterThan(0);
+    // the mock aiClient returns a plain string so it should be passed through as-is
+    expect(body.prompt).toBe('A vivid professional image prompt');
+  });
+
+  it('returns a fallback prompt when aiClient returns a [STUB] response', async () => {
+    const aiClient = makeAiClient('[STUB] placeholder response');
+    db = new MockDb();
+    ({ app } = await buildApp(db, { aiClient }));
+    await visualRoutes(app as any);
+
+    db.enqueue([mockVisual]);
+    db.enqueue([mockContentPackage]);
+    db.enqueue([mockIdea]);
+    db.enqueue([mockTrend]);
+    db.enqueue([mockDomainProfile]);
+    db.enqueue([mockBrandKit]);
+    const token = makeToken(app);
+
+    const res = await app.inject({
+      method: 'POST', url: `/visuals/${mockVisual.id}/prompt`,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    // fallback contains the visual_type and 'social media'
+    const { prompt } = res.json() as { prompt: string };
+    expect(prompt).toContain(mockVisual.visualType.replace(/_/g, ' '));
+    expect(prompt).toContain('social media');
+  });
+});
 
 describe('GET /visuals/:visualId', () => {
   let db: MockDb;

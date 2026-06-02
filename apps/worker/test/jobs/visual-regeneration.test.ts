@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../src/lib/ws-publish', () => ({
   publishToUser: vi.fn().mockResolvedValue(undefined),
@@ -14,11 +14,17 @@ vi.mock('../../src/adapters/unsplash', () => ({
     search: vi.fn().mockResolvedValue({ url: 'https://unsplash.example.com/new.jpg' }),
   })),
 }));
+vi.mock('../../src/jobs/visual-generation/build-image-prompts', () => ({
+  buildImagePrompts: vi.fn().mockResolvedValue(
+    new Map([['thumbnail', { dallePrompt: 'AI prompt via Claude', unsplashQuery: 'AI healthcare' }]])
+  ),
+}));
 
 import { processVisualRegeneration } from '../../src/jobs/visual-regeneration/index';
 import { publishToUser } from '../../src/lib/ws-publish';
 import { DalleClient } from '../../src/adapters/dalle';
 import { UnsplashClient } from '../../src/adapters/unsplash';
+import { buildImagePrompts } from '../../src/jobs/visual-generation/build-image-prompts';
 
 const mockPublish = vi.mocked(publishToUser);
 
@@ -67,8 +73,12 @@ function makeDeps() {
   const redis = { publish: vi.fn().mockResolvedValue(1) } as any;
   const uploadToR2 = vi.fn().mockResolvedValue('https://r2.example.com/new.jpg');
   const env = { OPENAI_API_KEY: 'sk-test', UNSPLASH_ACCESS_KEY: 'u-test', AI_MODEL_VISUAL: 'dall-e-3' };
+  const aiClient = {
+    complete: vi.fn().mockResolvedValue({ text: '{}', inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }),
+    defaultModel: 'test-model',
+  } as any;
 
-  return { db: makeDb(), redis, logger: logger as any, uploadToR2, env };
+  return { db: makeDb(), redis, logger: logger as any, uploadToR2, env, aiClient };
 }
 
 const basePayload = {
@@ -132,5 +142,64 @@ describe('processVisualRegeneration — visual not found', () => {
     deps.db._queue = [[]];
 
     await expect(processVisualRegeneration(basePayload, deps)).rejects.toThrow('visual-1');
+  });
+});
+
+describe('processVisualRegeneration — no instruction, fetches context', () => {
+  const mockPkg  = { id: 'pkg-1', ideaId: 'idea-1' };
+  const mockIdea = { id: 'idea-1', trendId: 'trend-1', hookLine: 'AI in healthcare', coreArgument: 'Faster diagnosis' };
+  const mockTrend = { id: 'trend-1', topicName: 'AI Healthcare' };
+  const mockProfile = { creatorPersona: 'Tech lead', toneOfVoice: ['professional'] };
+  const mockBrandKit = { primaryColors: ['#123456'], brandingMode: 'flexible' };
+
+  beforeEach(() => {
+    vi.mocked(buildImagePrompts).mockClear();
+  });
+
+  it('calls buildImagePrompts with idea and trend context when all context rows are found', async () => {
+    const deps = makeDeps();
+    deps.db._queue = [
+      [mockVisual],    // visual lookup
+      [mockPkg],       // content package
+      [mockIdea],      // idea
+      [mockTrend],     // trend
+      [mockProfile],   // domain profile
+      [mockBrandKit],  // brand kit
+      [],              // update visual
+    ];
+
+    await processVisualRegeneration(basePayload, deps);
+
+    expect(buildImagePrompts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        visualTypes: [mockVisual.visualType],
+        idea: expect.objectContaining({ hookLine: mockIdea.hookLine }),
+        trendTopicName: mockTrend.topicName,
+      })
+    );
+    expect(mockPublish).toHaveBeenCalledWith(
+      expect.anything(), 'u1',
+      expect.objectContaining({ event: 'visual_regenerated' }),
+    );
+  });
+});
+
+describe('processVisualRegeneration — R2 upload failure', () => {
+  it('falls back to source URL and still completes successfully', async () => {
+    const deps = makeDeps();
+    deps.uploadToR2 = vi.fn().mockRejectedValue(new Error('R2 unavailable'));
+    deps.db._queue = [
+      [mockVisual],
+      [],  // update visual
+    ];
+
+    // instruction provided so we skip the context-fetch path
+    await processVisualRegeneration({ ...basePayload, instruction: 'Dark tones' }, deps);
+
+    // publishes success event even after upload failure (falls back to source URL)
+    expect(mockPublish).toHaveBeenCalledWith(
+      expect.anything(), 'u1',
+      expect.objectContaining({ event: 'visual_regenerated' }),
+    );
   });
 });
