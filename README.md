@@ -23,9 +23,11 @@ Solo creators spend hours finding trends, researching angles, and writing copy f
 - **Trend harvesting** — pulls from X/Twitter, NewsAPI, Reddit, YouTube, and Google Trends on a daily schedule or on demand
 - **Idea generation** — Claude produces five content angles per trend, scored for relevance and mapped to your niche/tone
 - **Research briefs** — Perplexity deep-dives the approved idea before any copy is written
-- **Multi-format drafts** — thread, carousel, short-form video script, long-form post, and newsletter — all in one job
-- **Visual generation** — DALL-E 3 or Unsplash stock images, auto-uploaded to Cloudflare R2
+- **Multi-format drafts** — X thread, LinkedIn article, LinkedIn carousel, Instagram post, reel script, and blog post — all in one job
+- **Visual generation** — DALL-E 3 or Unsplash stock images, auto-uploaded to Cloudflare R2; or upload your own image / supply an external prompt
 - **Content packages** — ZIP everything into a portable bundle with one click
+- **Topic blacklist** — reject an idea and blacklist its topic so it never surfaces again
+- **Per-trend review** — ideas are grouped by source trend with one-click bulk reject per trend
 
 > **Zero paid keys required.** Every external API (AI, trends, images, email) has a deterministic stub adapter. The full pipeline runs out of the box for development and demos.
 
@@ -173,7 +175,7 @@ pnpm test:watch                   # watch mode
 
 ## Testing
 
-Tests are written with Vitest and live in `test/` alongside each package's `src/`. The suite covers API routes, worker jobs, adapters, sources, and frontend utilities — **264 tests across 7 packages**, all running without any external services.
+Tests are written with Vitest and live in `test/` alongside each package's `src/`. The suite covers API routes, worker jobs, adapters, sources, and frontend utilities — **320 tests across 4 suites** (`api`, `worker`, `web`, `ai-client`), all running without any external services.
 
 ```bash
 pnpm test          # all packages
