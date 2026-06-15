@@ -27,8 +27,8 @@ importers:
         specifier: ^3.3.3
         version: 3.8.3
       turbo:
-        specifier: ^2.3.3
-        version: 2.9.12
+        specifier: ^2.9.14
+        version: 2.9.14
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1984,6 +1984,7 @@ packages:
   '@smithy/core@3.24.1':
     resolution: {integrity: sha512-3mT7o4qQyUWttYnVK3A0Z/u3Xha3E81tXn32Tz6vjZiUXhBrkEivpw1hBYfh84iFF9CSzkBU9Y1DJ3Q6RQ231g==}
     engines: {node: '>=18.0.0'}
+    deprecated: Deprecated due to bug in browser bundling instructions https://github.com/smithy-lang/smithy-typescript/issues/2025
 
   '@smithy/credential-provider-imds@4.3.1':
     resolution: {integrity: sha512-0S/acwHnqX4WrjXzhdiDRxsG2s9SC0cpPIK9nZ1R6UOHd+j7uL28+4bHu22urbLk2TVw3fkp6na/+fkUt/pLNQ==}
@@ -2166,33 +2167,33 @@ packages:
     peerDependencies:
       react: ^18 || ^19
 
-  '@turbo/darwin-64@2.9.12':
-    resolution: {integrity: sha512-eu3eFRmE9NjgZ0wPdRJ44l+LGSeIky+tz5ZQd8zQkw/Yqi+BM7wq+8nbabeoiVUcICi/IZweMOKl/MCmkrd1+g==}
+  '@turbo/darwin-64@2.9.14':
+    resolution: {integrity: sha512-t7QiPflaEyBE4oayeZtSmu4mEfjgIrcNlNNl1z1dmIVPqEdtA7+CfTf8d7KXsOGPh6aNgWjKxyvQg9uGfDQF+A==}
     cpu: [x64]
     os: [darwin]
 
-  '@turbo/darwin-arm64@2.9.12':
-    resolution: {integrity: sha512-RUkAE404z/J8NsyrUosMcBaXT6M4bRFxTQrmkDQBLQVXaC8Jl0e9bMvYDSX0GW7Ffm2m3j9y7RXgR1foeUAM9w==}
+  '@turbo/darwin-arm64@2.9.14':
+    resolution: {integrity: sha512-d23147mC9BsCPA9mJ0h/ubcpbRgcJBXbcG3+Vq7YLhjz3IXuvQsJ1UXH8f4MD76ZjJ4m/E4aRdJV+MW88CDfbw==}
     cpu: [arm64]
     os: [darwin]
 
-  '@turbo/linux-64@2.9.12':
-    resolution: {integrity: sha512-InIUtH7cw/vqXNX1Gr7QgWfmw3ct08pV5CpfdEOR48z2u2rzdmpIuk00B/Q2xCb0PMWtKgiMQynfuphmEuUyTQ==}
+  '@turbo/linux-64@2.9.14':
+    resolution: {integrity: sha512-P3ZKB5tuUDdDQWuAsACGUR1qv9W7BNWxdxqVJ0kZNuNNPRaVYTPPikLcp79+GiEcW3npsR+KyP38lnQiBc5aSA==}
     cpu: [x64]
     os: [linux]
 
-  '@turbo/linux-arm64@2.9.12':
-    resolution: {integrity: sha512-lC6nD//Xh67fmJM0LKaLsg74Wry0aYrgMklpiNgCbUaMdPIOqj0A00iri3NU7Lb7pZHx8ViisgpeDKlpSgFUCA==}
+  '@turbo/linux-arm64@2.9.14':
+    resolution: {integrity: sha512-ZRTlzcUMrrPv9ZuDzRF9n60Ym13bKeG9jDB8WjxyLhWNzV+AJQN+zdpIk3NJYf2zQsGUm1mNar2P0elRzLw25g==}
     cpu: [arm64]
     os: [linux]
 
-  '@turbo/windows-64@2.9.12':
-    resolution: {integrity: sha512-conYri8VUl72JOdYnLDPYwzqbPcY5ECoHmo9FWoKznemhaAIilj4maHqs9Uar0aKfNoZIULniy+6iWaLtLO34A==}
+  '@turbo/windows-64@2.9.14':
+    resolution: {integrity: sha512-exanwN6sIduZwykYeiTQj8kCmOhazP5WOz3bvXMcYtjhL6Z3iRWLewKrXCBq0bqwSP3iBMb/AerRCnHI4lx46A==}
     cpu: [x64]
     os: [win32]
 
-  '@turbo/windows-arm64@2.9.12':
-    resolution: {integrity: sha512-XoR4bsg62/L/esRVcmoMESEiNZ36+YmyjYGLpoqk8nwMgXzzVjNOgX0lRSz5w/U/ajLGv3nhMsS0Q2QOdvp2AQ==}
+  '@turbo/windows-arm64@2.9.14':
+    resolution: {integrity: sha512-fVdCsnmYoKICsycbWuuGp6Jvi51/3G/UluFWuAUCvR8PIW5IJkAk5BM9UF8PSm0Q2IphWHFZjYEgjHsh3B9y/g==}
     cpu: [arm64]
     os: [win32]
 
@@ -4859,8 +4860,8 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  turbo@2.9.12:
-    resolution: {integrity: sha512-lCPgus1NuTiBdaITWqzSH/Ff6HVL8HHGBtOXHg1dHRfcshN79XkygSdh0M6g8b0td91ILLG5MTkLOkp5UvyPJw==}
+  turbo@2.9.14:
+    resolution: {integrity: sha512-BQqXRr4UoWI3UPFrtznCLykYHxwxWh53iCB57x092jPMjIlW1wnm3N895g5irpiXmnxUhREBB0n6+y8BHhs4nw==}
     hasBin: true
 
   type-check@0.4.0:
@@ -6936,22 +6937,22 @@ snapshots:
       '@tanstack/query-core': 5.100.10
       react: 18.3.1
 
-  '@turbo/darwin-64@2.9.12':
+  '@turbo/darwin-64@2.9.14':
     optional: true
 
-  '@turbo/darwin-arm64@2.9.12':
+  '@turbo/darwin-arm64@2.9.14':
     optional: true
 
-  '@turbo/linux-64@2.9.12':
+  '@turbo/linux-64@2.9.14':
     optional: true
 
-  '@turbo/linux-arm64@2.9.12':
+  '@turbo/linux-arm64@2.9.14':
     optional: true
 
-  '@turbo/windows-64@2.9.12':
+  '@turbo/windows-64@2.9.14':
     optional: true
 
-  '@turbo/windows-arm64@2.9.12':
+  '@turbo/windows-arm64@2.9.14':
     optional: true
 
   '@tybys/wasm-util@0.10.2':
@@ -8080,8 +8081,8 @@ snapshots:
       '@typescript-eslint/parser': 7.2.0(eslint@8.57.1)(typescript@5.9.3)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1)
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.57.1)
       eslint-plugin-react: 7.37.5(eslint@8.57.1)
       eslint-plugin-react-hooks: 5.0.0-canary-7118f5dd7-20230705(eslint@8.57.1)
@@ -8104,7 +8105,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3
@@ -8115,22 +8116,21 @@ snapshots:
       tinyglobby: 0.2.16
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint@8.57.1):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
-      '@typescript-eslint/parser': 7.2.0(eslint@8.57.1)(typescript@5.9.3)
+      '@typescript-eslint/parser': 7.18.0(eslint@8.57.1)(typescript@5.9.3)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -8141,7 +8141,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.10
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint@8.57.1)
       hasown: 2.0.3
       is-core-module: 2.16.2
       is-glob: 4.0.3
@@ -8153,7 +8153,7 @@ snapshots:
       string.prototype.trimend: 1.0.9
       tsconfig-paths: 3.15.0
     optionalDependencies:
-      '@typescript-eslint/parser': 7.2.0(eslint@8.57.1)(typescript@5.9.3)
+      '@typescript-eslint/parser': 7.18.0(eslint@8.57.1)(typescript@5.9.3)
     transitivePeerDependencies:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
@@ -9986,14 +9986,14 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
-  turbo@2.9.12:
+  turbo@2.9.14:
     optionalDependencies:
-      '@turbo/darwin-64': 2.9.12
-      '@turbo/darwin-arm64': 2.9.12
-      '@turbo/linux-64': 2.9.12
-      '@turbo/linux-arm64': 2.9.12
-      '@turbo/windows-64': 2.9.12
-      '@turbo/windows-arm64': 2.9.12
+      '@turbo/darwin-64': 2.9.14
+      '@turbo/darwin-arm64': 2.9.14
+      '@turbo/linux-64': 2.9.14
+      '@turbo/linux-arm64': 2.9.14
+      '@turbo/windows-64': 2.9.14
+      '@turbo/windows-arm64': 2.9.14
 
   type-check@0.4.0:
     dependencies:
