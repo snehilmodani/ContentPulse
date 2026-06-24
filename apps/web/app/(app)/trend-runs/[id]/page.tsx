@@ -212,8 +212,6 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
   const [editHook, setEditHook] = useState('');
   const [editArgument, setEditArgument] = useState('');
   const [editPlatforms, setEditPlatforms] = useState<PublishedPlatform[]>([]);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-
   // Reset edit state when modal closes or idea changes
   useEffect(() => {
     setIsEditing(false);
@@ -395,7 +393,7 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
               </DialogFooter>
             ) : isPending ? (
               <DialogFooter className="gap-2 sm:gap-2">
-                <Button size="sm" variant="destructive" onClick={() => setRejectDialogOpen(true)} disabled={isActionPending} className="gap-1">
+                <Button size="sm" variant="destructive" onClick={() => handleRejectConfirmed()} disabled={isActionPending} className="gap-1">
                   <XCircle className="h-3 w-3" />
                   Reject
                 </Button>
@@ -413,14 +411,6 @@ function IdeaDetailModal({ ideaId, onClose }: { ideaId: string | null; onClose: 
         )}
       </DialogContent>
 
-      <RejectConfirmDialog
-        open={rejectDialogOpen}
-        onOpenChange={setRejectDialogOpen}
-        title="Reject idea"
-        topicName={idea?.trend?.topic_name ?? ''}
-        onConfirm={handleRejectConfirmed}
-        isPending={rejectIdea.isPending}
-      />
     </Dialog>
   );
 }
