@@ -57,14 +57,14 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
 
       for (const user of usersWithProfiles) {
         const userNow = DateTime.now().setZone(user.timezone);
-        const target9pm = userNow.set({ hour: 21, minute: 0, second: 0, millisecond: 0 });
+        const target11am = userNow.set({ hour: 11, minute: 0, second: 0, millisecond: 0 });
 
-        if (target9pm <= userNow) {
-          logger.debug({ userId: user.id, timezone: user.timezone, userNow: userNow.toISO() }, 'Skipping user — 9 PM already passed in their timezone');
+        if (target11am <= userNow) {
+          logger.debug({ userId: user.id, timezone: user.timezone, userNow: userNow.toISO() }, 'Skipping user — 11 AM already passed in their timezone');
           continue;
         }
 
-        const delayMs = target9pm.toMillis() - userNow.toMillis();
+        const delayMs = target11am.toMillis() - userNow.toMillis();
         const delayMins = Math.round(delayMs / 60_000);
         const jobId = `trend-${user.id}-${today}`;
 
@@ -78,7 +78,7 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
           continue;
         }
 
-        logger.info({ userId: user.id, trendRunId: trendRun.id, timezone: user.timezone, scheduledFor: target9pm.toISO(), delayMs, delayMins }, 'Creating trend run record');
+        logger.info({ userId: user.id, trendRunId: trendRun.id, timezone: user.timezone, scheduledFor: target11am.toISO(), delayMs, delayMins }, 'Creating trend run record');
 
         const payload: TrendHarvestingJobPayload = {
           job_type: 'trend_harvesting',
@@ -91,7 +91,7 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
             tone_of_voice: user.toneOfVoice ?? [],
           },
           sources: ['x_twitter', 'google_trends', 'newsapi', 'reddit', 'youtube'],
-          scheduled_for: target9pm.toISO()!,
+          scheduled_for: target11am.toISO()!,
         };
 
         await queues['trend-harvesting']?.add('trend_harvesting', payload, {
@@ -103,7 +103,7 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
           backoff: { type: 'exponential', delay: 2000 },
         });
 
-        logger.info({ userId: user.id, trendRunId: trendRun.id, jobId, delayMs, delayMins, scheduledFor: target9pm.toISO() }, 'Scheduled trend-harvesting job');
+        logger.info({ userId: user.id, trendRunId: trendRun.id, jobId, delayMs, delayMins, scheduledFor: target11am.toISO() }, 'Scheduled trend-harvesting job');
       }
     } catch (err) {
       logger.error({ err }, 'Scheduler tick failed');
