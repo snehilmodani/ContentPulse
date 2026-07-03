@@ -1,22 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useMutation } from '@tanstack/react-query';
 
-// Mock 'use client' directive — not meaningful in node/jsdom test env
-vi.mock('../lib/hooks/use-packages', async () => {
-  // Re-import with mocked dependencies
-  return await import('../lib/hooks/use-packages');
-});
-
-// Capture the mutationFn / queryFn that hooks register, without a real React context
-const capturedMutations: Record<string, { mutationFn: Function; onSuccess?: Function }> = {};
-const capturedQueries: Record<string, { queryFn: Function; queryKey: unknown[] }> = {};
 const mockInvalidateQueries = vi.fn();
 
 vi.mock('@tanstack/react-query', () => ({
-  useMutation: vi.fn((config: { mutationFn: Function; onSuccess?: Function }) => {
-    // Return the config so callers (our hooks) get back what they expect
-    return config;
-  }),
-  useQuery: vi.fn((config: { queryFn: Function; queryKey: unknown[] }) => config),
+  useMutation: vi.fn((config: unknown) => config),
+  useQuery: vi.fn((config: unknown) => config),
   useQueryClient: vi.fn(() => ({ invalidateQueries: mockInvalidateQueries })),
 }));
 
@@ -32,13 +21,22 @@ vi.mock('../lib/api-client', () => ({
   },
 }));
 
-// Import after mocks are set up
 import {
   useResearchPackage,
   useExportPackage,
   useRegenerateDraft,
   useRegenerateVisual,
 } from '../lib/hooks/use-packages';
+
+// Helper: extract the mutationFn/onSuccess that a hook registers with useMutation.
+// The mock captures the config object passed to useMutation; we pull it from call args.
+function getMutationConfig(callIndex = 0): {
+  mutationFn: (...args: unknown[]) => Promise<unknown>;
+  onSuccess?: (data: unknown, vars: unknown, ctx: unknown) => void;
+} {
+  const mockedUseMutation = vi.mocked(useMutation);
+  return mockedUseMutation.mock.calls[callIndex]?.[0] as ReturnType<typeof getMutationConfig>;
+}
 
 describe('useResearchPackage', () => {
   beforeEach(() => { vi.clearAllMocks(); });
@@ -48,8 +46,9 @@ describe('useResearchPackage', () => {
     const packageId = 'pkg-abc-123';
     mockApiFetch.mockResolvedValueOnce({ package_id: packageId, status: 'pending', job_id: 'job-1' });
 
-    const hook = useResearchPackage();
-    await hook.mutationFn(packageId);
+    useResearchPackage();
+    const { mutationFn } = getMutationConfig();
+    await mutationFn(packageId);
 
     expect(mockApiFetch).toHaveBeenCalledWith(
       `/content-packages/${packageId}/research`,
@@ -61,8 +60,9 @@ describe('useResearchPackage', () => {
     const packageId = 'pkg-abc-123';
     const responseData = { package_id: packageId, status: 'pending', job_id: 'job-1' };
 
-    const hook = useResearchPackage();
-    await hook.onSuccess?.(responseData, packageId, undefined);
+    useResearchPackage();
+    const { onSuccess } = getMutationConfig();
+    await onSuccess?.(responseData, packageId, undefined);
 
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['packages', packageId] });
   });
@@ -72,8 +72,9 @@ describe('useResearchPackage', () => {
     const expected = { package_id: packageId, status: 'pending', job_id: 'job-42' };
     mockApiFetch.mockResolvedValueOnce(expected);
 
-    const hook = useResearchPackage();
-    const result = await hook.mutationFn(packageId);
+    useResearchPackage();
+    const { mutationFn } = getMutationConfig();
+    const result = await mutationFn(packageId);
 
     expect(result).toEqual(expected);
   });
@@ -86,8 +87,9 @@ describe('useExportPackage', () => {
     const packageId = 'pkg-export-1';
     mockApiFetch.mockResolvedValueOnce({ package_id: packageId, status: 'exporting', job_id: 'job-2' });
 
-    const hook = useExportPackage();
-    await hook.mutationFn(packageId);
+    useExportPackage();
+    const { mutationFn } = getMutationConfig();
+    await mutationFn(packageId);
 
     expect(mockApiFetch).toHaveBeenCalledWith(
       `/content-packages/${packageId}/export`,
@@ -99,8 +101,9 @@ describe('useExportPackage', () => {
     const packageId = 'pkg-export-1';
     const responseData = { package_id: packageId, status: 'exporting', job_id: 'job-2' };
 
-    const hook = useExportPackage();
-    await hook.onSuccess?.(responseData, packageId, undefined);
+    useExportPackage();
+    const { onSuccess } = getMutationConfig();
+    await onSuccess?.(responseData, packageId, undefined);
 
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['packages', packageId] });
   });
@@ -114,8 +117,9 @@ describe('useRegenerateDraft', () => {
     const instruction = 'make it shorter';
     mockApiFetch.mockResolvedValueOnce({ draft_id: draftId, status: 'regenerating', job_id: 'j' });
 
-    const hook = useRegenerateDraft();
-    await hook.mutationFn({ draftId, instruction });
+    useRegenerateDraft();
+    const { mutationFn } = getMutationConfig();
+    await mutationFn({ draftId, instruction });
 
     expect(mockApiFetch).toHaveBeenCalledWith(
       `/drafts/${draftId}/regenerate`,
@@ -127,8 +131,9 @@ describe('useRegenerateDraft', () => {
   });
 
   it('invalidates all packages queries on success', async () => {
-    const hook = useRegenerateDraft();
-    await hook.onSuccess?.({ draft_id: 'd', status: 'regenerating', job_id: 'j' }, { draftId: 'd', instruction: '' }, undefined);
+    useRegenerateDraft();
+    const { onSuccess } = getMutationConfig();
+    await onSuccess?.({ draft_id: 'd', status: 'regenerating', job_id: 'j' }, { draftId: 'd', instruction: '' }, undefined);
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['packages'] });
   });
 });
@@ -140,8 +145,9 @@ describe('useRegenerateVisual', () => {
     const visualId = 'vis-1';
     mockApiFetch.mockResolvedValueOnce({ visual_id: visualId, status: 'regenerating', job_id: 'j' });
 
-    const hook = useRegenerateVisual();
-    await hook.mutationFn({ visualId, body: { instruction: 'brighter colors' } });
+    useRegenerateVisual();
+    const { mutationFn } = getMutationConfig();
+    await mutationFn({ visualId, body: { instruction: 'brighter colors' } });
 
     expect(mockApiFetch).toHaveBeenCalledWith(
       `/visuals/${visualId}/regenerate`,
