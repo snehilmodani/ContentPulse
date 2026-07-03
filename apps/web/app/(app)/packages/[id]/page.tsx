@@ -12,6 +12,7 @@ import {
   useApproveDraft,
   useRejectDraft,
   useRegenerateDraft,
+  useResearchPackage,
   useExportPackage,
 } from '@/lib/hooks/use-packages';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -323,6 +324,7 @@ export default function PackagePage() {
   const { data: visualsData } = usePackageVisuals(packageId, isDrafting, pkg?.status);
   const pkgStatus = pkg?.status ?? 'pending';
   const { data: brief } = usePackageBrief(packageId, BRIEF_VISIBLE.has(pkgStatus));
+  const retryGeneration = useResearchPackage();
   const exportPackage = useExportPackage();
 
   // When the package leaves an in-flight state, force a final refresh of drafts + brief + visuals.
@@ -394,6 +396,18 @@ export default function PackagePage() {
             </>
           )}
         </div>
+        {pkgStatus === 'rejected' && (
+          <Button
+            onClick={() => retryGeneration.mutate(packageId)}
+            disabled={retryGeneration.isPending}
+            className="gap-2"
+          >
+            {retryGeneration.isPending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <RefreshCw className="h-4 w-4" />}
+            Retry Generation
+          </Button>
+        )}
         {(pkgStatus === 'ready' || pkgStatus === 'approved') && (
           <Button
             onClick={() => {

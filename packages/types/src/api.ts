@@ -387,6 +387,12 @@ export interface GenerateExternalPromptResponse {
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 
+export interface ResearchPackageResponse {
+  package_id: string;
+  status: 'pending';
+  job_id: string;
+}
+
 export interface ExportResponse {
   package_id: string;
   status: 'exporting';

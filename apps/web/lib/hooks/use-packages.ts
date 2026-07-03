@@ -14,6 +14,7 @@ import type {
   RegenerateVisualBody,
   RegenerateVisualResponse,
   RejectDraftResponse,
+  ResearchPackageResponse,
   TopicBriefResponse,
   VisualResponse,
 } from '@contentpulse/types';
@@ -142,6 +143,17 @@ export function useUploadVisual() {
       return apiUpload<VisualResponse>(`/visuals/${visualId}/upload`, fd);
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['packages'] }),
+  });
+}
+
+export function useResearchPackage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (packageId: string) =>
+      apiFetch<ResearchPackageResponse>(`/content-packages/${packageId}/research`, { method: 'POST' }),
+    onSuccess: (_data, packageId) => {
+      void queryClient.invalidateQueries({ queryKey: ['packages', packageId] });
+    },
   });
 }
 
