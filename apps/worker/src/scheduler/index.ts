@@ -6,7 +6,6 @@ import { domainProfiles, trendRuns, users } from '@contentpulse/db';
 import type { Queue } from 'bullmq';
 import type { JobPayload, TrendHarvestingJobPayload } from '@contentpulse/types';
 import { and, eq, not, exists } from 'drizzle-orm';
-import { sql } from 'drizzle-orm';
 
 interface Deps {
   db: Db;
@@ -45,7 +44,7 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
                   .where(
                     and(
                       eq(trendRuns.userId, users.id),
-                      eq(trendRuns.runDate, sql`CURRENT_DATE`),
+                      eq(trendRuns.runDate, today),
                     ),
                   ),
               ),
@@ -74,7 +73,7 @@ export function startScheduler(deps: Deps): cron.ScheduledTask {
           .returning({ id: trendRuns.id });
 
         if (!trendRun) {
-          logger.debug({ userId: user.id, jobId }, 'Trend run already exists for today — skipping');
+          logger.error({ userId: user.id, jobId }, 'Trend run insert returned no row — skipping');
           continue;
         }
 

@@ -44,15 +44,13 @@ async function main() {
   }
   console.log(`Seeding queue for user ${userId}`);
 
-  // Create a trend run for today
+  // Create a trend run for today. There is no unique constraint on
+  // (user_id, run_date) — manual/seeded runs are intentionally allowed to
+  // stack — so this is a plain insert rather than an upsert.
   const today = new Date().toISOString().slice(0, 10);
   const [run] = await db
     .insert(trendRuns)
     .values({ userId, runDate: today, status: 'completed', completedAt: new Date() })
-    .onConflictDoUpdate({
-      target: [trendRuns.userId, trendRuns.runDate],
-      set: { status: 'completed', completedAt: new Date(), updatedAt: new Date() },
-    })
     .returning();
 
   if (!run) throw new Error('Failed to insert trend run');
