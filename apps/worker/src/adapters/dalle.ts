@@ -32,7 +32,7 @@ export class DalleClient {
   private readonly model: string;
   private readonly logger: Logger;
 
-  constructor(apiKey: string, model = 'google/gemini-2.5-flash-image', logger: Logger) {
+  constructor(apiKey: string, model = 'google/gemini-3.1-flash-lite-image', logger: Logger) {
     this.apiKey = apiKey;
     this.model = model;
     this.logger = logger;
